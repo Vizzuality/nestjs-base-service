@@ -1,7 +1,5 @@
-import { User } from 'modules/users/users.entity';
-
-export interface InfoDto {
+export interface InfoDto<T> {
   params?: any;
-  authenticatedUser?: User;
+  authenticatedUser?: T;
   others?: any;
 }

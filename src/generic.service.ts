@@ -27,7 +27,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
    * @param info Additional request metadata
    * @return The entity instance to be created
    */
-  async setDataCreate(create: C, info?: InfoDto): Promise<E> {
+  async setDataCreate(create: C, info?: U): Promise<E> {
     /**
      * Probably not the best way of doing it but it should address at least
      * simple use cases. See:
@@ -50,7 +50,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
    * @param info Additional request metadata
    * @return The updated entity instance
    */
-  async setDataUpdate(model: E, update: U, info?: InfoDto): Promise<E> {
+  async setDataUpdate(model: E, update: U, info?: U): Promise<E> {
     Object.entries(update).forEach(([key, value]) => {
       model[key] = value;
     });
@@ -59,14 +59,14 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   }
 
   // ↓↓↓ findAll
-  findAll(info?: InfoDto, filters: any = null): Promise<E[]> {
+  findAll(info?: U, filters: any = null): Promise<E[]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFilters(query, filters, info);
     return query.getMany();
   }
 
-  setFilters(query: SelectQueryBuilder<E>, filters: any, info: InfoDto) {
+  setFilters(query: SelectQueryBuilder<E>, filters: any, info: U) {
     return query;
   }
   // ↑↑↑ findAll
@@ -78,11 +78,11 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ paginate
 
   // ↓↓↓ getById
-  setFiltersGetById(query: SelectQueryBuilder<E>, info: InfoDto): SelectQueryBuilder<E> {
+  setFiltersGetById(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
     return query;
   }
 
-  async getById(id: string, info?: InfoDto): Promise<E> {
+  async getById(id: string, info?: U): Promise<E> {
     Logger.debug(`Getting ${this.alias} by id`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersGetById(query, info);
@@ -96,15 +96,15 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ getById
 
   // ↓↓↓ create
-  async validateBeforeCreate(createModel: C, info: InfoDto): Promise<void> {
+  async validateBeforeCreate(createModel: C, info: U): Promise<void> {
     return;
   }
 
-  async actionAfterCreate(model: E, createModel: C, info: InfoDto): Promise<void> {
+  async actionAfterCreate(model: E, createModel: C, info: U): Promise<void> {
     return;
   }
 
-  async create(createModel: C, info?: InfoDto): Promise<E> {
+  async create(createModel: C, info?: U): Promise<E> {
     Logger.debug(`Creating ${this.alias}`);
 
     await this.validateBeforeCreate(createModel, info);
@@ -123,23 +123,23 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ create
 
   // ↓↓↓ update
-  async validateBeforeUpdate(id: string, updateModel: U, info?: InfoDto): Promise<void> {
+  async validateBeforeUpdate(id: string, updateModel: U, info?: U): Promise<void> {
     return;
   }
 
-  setFiltersUpdate(query: SelectQueryBuilder<E>, info: InfoDto): SelectQueryBuilder<E> {
+  setFiltersUpdate(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
     return query;
   }
 
-  async actionBeforeUpdate(id: string, updateModel: U, info: InfoDto): Promise<void> {
+  async actionBeforeUpdate(id: string, updateModel: U, info: U): Promise<void> {
     return;
   }
 
-  async actionAfterUpdate(model: E, updateModel: U, info: InfoDto): Promise<void> {
+  async actionAfterUpdate(model: E, updateModel: U, info: U): Promise<void> {
     return;
   }
 
-  async update(id: string, updateModel: U, info?: InfoDto): Promise<E> {
+  async update(id: string, updateModel: U, info?: U): Promise<E> {
     Logger.debug(`Updating ${this.alias}`);
     await this.actionBeforeUpdate(id, updateModel, info);
     await this.validateBeforeUpdate(id, updateModel, info);
@@ -164,15 +164,15 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ update
 
   // ↓↓↓ delete
-  setFiltersDelete(query: SelectQueryBuilder<E>, info: InfoDto): SelectQueryBuilder<E> {
+  setFiltersDelete(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
     return query;
   }
 
-  canBeRemoved(id: string, model: E, info?: InfoDto): boolean {
+  canBeRemoved(id: string, model: E, info?: U): boolean {
     return true;
   }
 
-  async remove(id: string, info?: InfoDto): Promise<void> {
+  async remove(id: string, info?: U): Promise<void> {
     Logger.debug(`Removing a ${this.alias}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersDelete(query, info);
@@ -188,7 +188,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
     }
   }
 
-  async removeMany(idList: string[], info?: InfoDto): Promise<void> {
+  async removeMany(idList: string[], info?: U): Promise<void> {
     Logger.debug(`Removing multiple ${this.alias}`);
     const query = this.repository
       .createQueryBuilder(this.alias)
