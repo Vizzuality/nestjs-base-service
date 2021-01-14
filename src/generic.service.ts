@@ -2,9 +2,6 @@ import { Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
-import { InfoDto } from 'dto/info.dto';
-import { GenericEntity } from './generic.entity';
-
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
 /**
