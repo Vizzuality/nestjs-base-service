@@ -9,8 +9,11 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
  *
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
-export abstract class GenericService<E extends GenericEntity, C, U> {
-  constructor(protected readonly repository: Repository<E>, protected alias: string = 'master') {}
+export abstract class GenericService<Entity, CreateModel, UpdateModel, Info> {
+  constructor(
+    protected readonly repository: Repository<Entity>,
+    protected alias: string = 'master'
+  ) {}
 
   /*
    * setDataCreate and setDataUpdate will usually be overwritten
@@ -24,7 +27,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
    * @param info Additional request metadata
    * @return The entity instance to be created
    */
-  async setDataCreate(create: C, info?: U): Promise<E> {
+  async setDataCreate(create: CreateModel, info?: Info): Promise<Entity> {
     /**
      * Probably not the best way of doing it but it should address at least
      * simple use cases. See:
@@ -36,7 +39,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
       model[key] = value;
     });
 
-    return model as E;
+    return model as Entity;
   }
 
   /*
@@ -47,7 +50,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
    * @param info Additional request metadata
    * @return The updated entity instance
    */
-  async setDataUpdate(model: E, update: U, info?: U): Promise<E> {
+  async setDataUpdate(model: Entity, update: UpdateModel, info?: Info): Promise<Entity> {
     Object.entries(update).forEach(([key, value]) => {
       model[key] = value;
     });
@@ -56,30 +59,30 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   }
 
   // ↓↓↓ findAll
-  findAll(info?: U, filters: any = null): Promise<E[]> {
+  findAll(info?: Info, filters: any = null): Promise<Entity[]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFilters(query, filters, info);
     return query.getMany();
   }
 
-  setFilters(query: SelectQueryBuilder<E>, filters: any, info: U) {
+  setFilters(query: SelectQueryBuilder<Entity>, filters: any, info: Info) {
     return query;
   }
   // ↑↑↑ findAll
 
   // ↓↓↓ paginate
-  async paginate(options: IPaginationOptions): Promise<Pagination<E>> {
-    return await paginate<E>(this.repository, options);
+  async paginate(options: IPaginationOptions): Promise<Pagination<Entity>> {
+    return await paginate<Entity>(this.repository, options);
   }
   // ↑↑↑ paginate
 
   // ↓↓↓ getById
-  setFiltersGetById(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
+  setFiltersGetById(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  async getById(id: string, info?: U): Promise<E> {
+  async getById(id: string, info?: Info): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersGetById(query, info);
@@ -93,15 +96,15 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ getById
 
   // ↓↓↓ create
-  async validateBeforeCreate(createModel: C, info: U): Promise<void> {
+  async validateBeforeCreate(createModel: CreateModel, info: Info): Promise<void> {
     return;
   }
 
-  async actionAfterCreate(model: E, createModel: C, info: U): Promise<void> {
+  async actionAfterCreate(model: Entity, createModel: CreateModel, info: Info): Promise<void> {
     return;
   }
 
-  async create(createModel: C, info?: U): Promise<E> {
+  async create(createModel: CreateModel, info?: Info): Promise<Entity> {
     Logger.debug(`Creating ${this.alias}`);
 
     await this.validateBeforeCreate(createModel, info);
@@ -120,23 +123,23 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ create
 
   // ↓↓↓ update
-  async validateBeforeUpdate(id: string, updateModel: U, info?: U): Promise<void> {
+  async validateBeforeUpdate(id: string, updateModel: UpdateModel, info?: Info): Promise<void> {
     return;
   }
 
-  setFiltersUpdate(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
+  setFiltersUpdate(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  async actionBeforeUpdate(id: string, updateModel: U, info: U): Promise<void> {
+  async actionBeforeUpdate(id: string, updateModel: UpdateModel, info: Info): Promise<void> {
     return;
   }
 
-  async actionAfterUpdate(model: E, updateModel: U, info: U): Promise<void> {
+  async actionAfterUpdate(model: Entity, updateModel: UpdateModel, info: Info): Promise<void> {
     return;
   }
 
-  async update(id: string, updateModel: U, info?: U): Promise<E> {
+  async update(id: string, updateModel: UpdateModel, info?: Info): Promise<Entity> {
     Logger.debug(`Updating ${this.alias}`);
     await this.actionBeforeUpdate(id, updateModel, info);
     await this.validateBeforeUpdate(id, updateModel, info);
@@ -161,15 +164,15 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
   // ↑↑↑ update
 
   // ↓↓↓ delete
-  setFiltersDelete(query: SelectQueryBuilder<E>, info: U): SelectQueryBuilder<E> {
+  setFiltersDelete(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  canBeRemoved(id: string, model: E, info?: U): boolean {
+  canBeRemoved(id: string, model: Entity, info?: Info): boolean {
     return true;
   }
 
-  async remove(id: string, info?: U): Promise<void> {
+  async remove(id: string, info?: Info): Promise<void> {
     Logger.debug(`Removing a ${this.alias}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersDelete(query, info);
@@ -185,7 +188,7 @@ export abstract class GenericService<E extends GenericEntity, C, U> {
     }
   }
 
-  async removeMany(idList: string[], info?: U): Promise<void> {
+  async removeMany(idList: string[], info?: Info): Promise<void> {
     Logger.debug(`Removing multiple ${this.alias}`);
     const query = this.repository
       .createQueryBuilder(this.alias)
