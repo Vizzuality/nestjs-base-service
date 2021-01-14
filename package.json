@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "description": "An opinionated base service for NestJS apps",
   "license": "MIT",
-  "private": true,
+  "private": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/Vizzuality/nestjs-base-service.git"
   },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc --project .",
+    "prepublishOnly": "tsc --project .",
     "lint": "eslint 'src/**/**.ts' --fix --ignore-pattern 'src/**/*.spec.ts'",
     "format": "prettier \"**/*.ts\" --ignore-path ./.prettierignore --write && git status"
   },
