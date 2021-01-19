@@ -9,10 +9,10 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
  *
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
-export abstract class GenericService<Entity, CreateModel, UpdateModel, Info> {
+export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   constructor(
     protected readonly repository: Repository<Entity>,
-    protected alias: string = 'master'
+    protected alias: string = 'base'
   ) {}
 
   /*
