@@ -4,6 +4,9 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
+import { FetchSpecification } from 'types/fetch-specification.interface';
+import { PaginationUtil } from 'utils/pagination.utils';
+
 /**
  * Base service class for NestJS projects.
  *
@@ -59,11 +62,17 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   }
 
   // ↓↓↓ findAll
-  findAll(info?: Info, filters: any = null): Promise<Entity[]> {
+  findAll(
+    fetchSpecification: FetchSpecification,
+    info?: Info,
+    filters: any = null
+  ): Promise<[Entity[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
+    info = { ...info, fetchSpecification };
     query = this.setFilters(query, filters, info);
-    return query.getMany();
+    query = PaginationUtil.addPagination(query, this.alias, fetchSpecification);
+    return query.getManyAndCount();
   }
 
   setFilters(query: SelectQueryBuilder<Entity>, filters: any, info: Info) {
