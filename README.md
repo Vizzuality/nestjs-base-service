@@ -12,6 +12,9 @@ Built with :heartpulse: at [Vizzuality](https://vizzuality.com).
 * [ ] Implement opinionated batching
 * [ ] Add support for validation (via plugin?)
 * [ ] Add support for auditing (via plugin?)
+* [ ] Add support for pagination
+* [ ] Add support for serialization
+* [ ] Add support for batching of operations
 
 ## License
 
