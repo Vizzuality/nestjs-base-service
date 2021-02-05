@@ -41,9 +41,9 @@ export class PaginationUtil<T> {
             const alias = completed.replace('.', '_');
             if (includes.indexOf(completed) === -1 || completed === inc) {
               if (index === 0) {
-                query.leftJoinAndSelect(`${aliasTable}.${element}`, alias);
+                query.leftJoinAndSelect(`"${aliasTable}"."${element}"`, alias);
               } else {
-                query.leftJoinAndSelect(`${lastPart}.${element}`, alias);
+                query.leftJoinAndSelect(`"${lastPart}"."${element}"`, alias);
               }
             }
 
