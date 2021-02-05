@@ -1,6 +1,6 @@
-import { createParamDecorator } from '@nestjs/common';
-import { Request } from 'express';
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-export const Pagination = createParamDecorator((_data, req: Request) => {
-  return req['pagination'];
+export const Pagination = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.fetchSpecification;
 });
