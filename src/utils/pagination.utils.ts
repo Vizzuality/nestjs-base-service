@@ -106,7 +106,12 @@ export class PaginationUtil<T> {
     }
     if (sort) {
       sort.map((s) => {
-        query.addOrderBy(`${aliasTable}.${s.column}`, s.order);
+        // strip orderBy sigils ('+' or '-'), if present
+        const sortByColumn = s.replace(/^[+-]/, '');
+        // if the first character is '-', sort descending; otherwise, sort
+        // ascending
+        const sortDirection: SortDirection = s.match(/^-/) ? 'DESC' : 'ASC';
+        query.addOrderBy(`"${aliasTable}"."${sortByColumn}"`, sortDirection);
       });
     }
     query.take(pageSize);
