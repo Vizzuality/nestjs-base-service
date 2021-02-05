@@ -1,7 +1,17 @@
-export interface FetchSpecification {
-  fields?: string[];
-  includes?: string[];
+export interface PaginationSpecification {
   pageSize?: number;
   pageNumber?: number;
-  sort?: any[];
 }
+
+export interface FieldsAndIncludesSpecification {
+  fields?: string[];
+  includes?: string[];
+}
+
+export interface SortSpecification {
+  sort?: string[];
+}
+
+export type FetchSpecification = PaginationSpecification &
+  FieldsAndIncludesSpecification &
+  SortSpecification;
