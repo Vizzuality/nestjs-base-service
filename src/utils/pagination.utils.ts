@@ -1,13 +1,28 @@
 import { SelectQueryBuilder } from 'typeorm';
 import { FetchSpecification } from '../types/fetch-specification.interface';
 
-const logger = require('logger');
+import { Logger } from '@nestjs/common';
+import { DEFAULT_PAGINATION } from '../config/default.config';
+
+type SortDirection = 'ASC' | 'DESC';
 
 export class PaginationUtil<T> {
   static addIncludesFields<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
-    { fields, includes, pageSize, pageNumber, sort }: FetchSpecification
+    {
+      fields = undefined,
+      includes = undefined,
+      pageSize = DEFAULT_PAGINATION.pageSize,
+      pageNumber = DEFAULT_PAGINATION.pageNumber,
+      sort = undefined,
+    }: FetchSpecification = {
+      fields: undefined,
+      includes: undefined,
+      pageSize: DEFAULT_PAGINATION.pageSize,
+      pageNumber: DEFAULT_PAGINATION.pageNumber,
+      sort: undefined,
+    }
   ) {
     if (fields && fields.length > 0) {
       query.select(fields.map((f) => `${aliasTable}.${f}`));
@@ -44,9 +59,21 @@ export class PaginationUtil<T> {
   static addPagination<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
-    { fields, includes, pageSize, pageNumber, sort }: FetchSpecification
+    {
+      fields = undefined,
+      includes = undefined,
+      pageSize = DEFAULT_PAGINATION.pageSize,
+      pageNumber = DEFAULT_PAGINATION.pageNumber,
+      sort = undefined,
+    }: FetchSpecification = {
+      fields: undefined,
+      includes: undefined,
+      pageSize: DEFAULT_PAGINATION.pageSize,
+      pageNumber: DEFAULT_PAGINATION.pageNumber,
+      sort: undefined,
+    }
   ) {
-    logger.debug('pagination', sort);
+    Logger.debug(`pagination: ${sort}`);
     if (fields && fields.length > 0) {
       query.select(fields.map((f) => `${aliasTable}.${f}`));
     }
