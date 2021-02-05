@@ -4,8 +4,8 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
-import { FetchSpecification } from 'types/fetch-specification.interface';
-import { PaginationUtil } from 'utils/pagination.utils';
+import { FetchSpecification } from './types/fetch-specification.interface';
+import { PaginationUtil } from './utils/pagination.utils';
 
 /**
  * Base service class for NestJS projects.
