@@ -6,6 +6,11 @@ import { DEFAULT_PAGINATION } from '../config/default.config';
 
 type SortDirection = 'ASC' | 'DESC';
 
+/**
+ * Utility functions for pagination, sorting, sparse fieldsets, etc.
+ *
+ * @debt Clean up all the legacy code, add documentation and tests.
+ */
 export class PaginationUtils<T> {
   static addIncludesFields<T>(
     query: SelectQueryBuilder<T>,
