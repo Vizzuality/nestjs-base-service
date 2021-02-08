@@ -18,7 +18,7 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0]
 
-2020-01-19
+2021-01-19
 
 ### Changed
 
@@ -29,7 +29,7 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0]
 
-2020-01-14
+2021-01-14
 
 Initial release
 
