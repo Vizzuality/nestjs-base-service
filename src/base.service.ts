@@ -75,7 +75,7 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
     return query.getManyAndCount();
   }
 
-  setFilters(query: SelectQueryBuilder<Entity>, filters: any, info: Info) {
+  setFilters(query: SelectQueryBuilder<Entity>, filters: any, info?: Info) {
     return query;
   }
   // ↑↑↑ findAll
@@ -87,7 +87,7 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   // ↑↑↑ paginate
 
   // ↓↓↓ getById
-  setFiltersGetById(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
+  setFiltersGetById(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
@@ -105,11 +105,11 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   // ↑↑↑ getById
 
   // ↓↓↓ create
-  async validateBeforeCreate(createModel: CreateModel, info: Info): Promise<void> {
+  async validateBeforeCreate(createModel: CreateModel, info?: Info): Promise<void> {
     return;
   }
 
-  async actionAfterCreate(model: Entity, createModel: CreateModel, info: Info): Promise<void> {
+  async actionAfterCreate(model: Entity, createModel: CreateModel, info?: Info): Promise<void> {
     return;
   }
 
@@ -136,15 +136,15 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
     return;
   }
 
-  setFiltersUpdate(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
+  setFiltersUpdate(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  async actionBeforeUpdate(id: string, updateModel: UpdateModel, info: Info): Promise<void> {
+  async actionBeforeUpdate(id: string, updateModel: UpdateModel, info?: Info): Promise<void> {
     return;
   }
 
-  async actionAfterUpdate(model: Entity, updateModel: UpdateModel, info: Info): Promise<void> {
+  async actionAfterUpdate(model: Entity, updateModel: UpdateModel, info?: Info): Promise<void> {
     return;
   }
 
@@ -173,7 +173,7 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   // ↑↑↑ update
 
   // ↓↓↓ delete
-  setFiltersDelete(query: SelectQueryBuilder<Entity>, info: Info): SelectQueryBuilder<Entity> {
+  setFiltersDelete(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
     return query;
   }
 
