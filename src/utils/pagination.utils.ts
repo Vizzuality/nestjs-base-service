@@ -6,7 +6,7 @@ import { DEFAULT_PAGINATION } from '../config/default.config';
 
 type SortDirection = 'ASC' | 'DESC';
 
-export class PaginationUtil<T> {
+export class PaginationUtils<T> {
   static addIncludesFields<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
