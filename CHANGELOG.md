@@ -8,17 +8,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.1]
 
-WIP
-
+2021-02-08
 ### Added
 
-### Changed
-
-### Fixed
-
-### Deprecated
-
-### Removed
+- Add initial support for pagination, for plural `GET` requests.
+- Add scaffolding for other fetch specification traits: `includes` (resource
+  inclusion), `fields` (sparse fieldsets), `sort` (sorting by specific fields).
 
 
 ## [0.2.0]
