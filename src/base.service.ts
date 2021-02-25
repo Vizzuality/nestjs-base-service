@@ -87,16 +87,25 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   // ↑↑↑ paginate
 
   // ↓↓↓ getById
-  setFiltersGetById(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
+  setFiltersGetById(
+    query: SelectQueryBuilder<Entity>,
+    info?: Info,
+    idProperty?: string
+  ): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  async getById(id: string, info?: Info): Promise<Entity> {
+  async getById(id: string, info?: Info, idProperty?: string): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
-    let query = this.repository.createQueryBuilder(this.alias);
-    query = this.setFiltersGetById(query, info);
-    query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
-    const model = await query.getOne();
+    /**
+     * @debt We should sanitize this. We should not put the burden of checking
+     * that idProperty does not include user input on consumers of our package.
+     */
+    const idColumn = typeof idProperty === 'string' && idProperty.length > 0 ? idProperty : 'id';
+    const query = this.repository.createQueryBuilder(this.alias);
+    const queryWitFilters = this.setFiltersGetById(query, info, idProperty);
+    queryWitFilters.andWhere(`"${this.alias}"."${idColumn}" = :id`).setParameter('id', id);
+    const model = await queryWitFilters.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
