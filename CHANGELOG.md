@@ -9,9 +9,11 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.2]
 
-WIP
+2021-02-25
 
 ### Added
+
+- Add support for searching by id using arbitrary id column names.
 
 ### Changed
 
