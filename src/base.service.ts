@@ -71,7 +71,7 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
     let query = this.repository.createQueryBuilder(this.alias);
     info = { ...info, fetchSpecification };
     query = this.setFilters(query, filters, info);
-    query = PaginationUtils.addPagination(query, this.alias, fetchSpecification);
+    query = PaginationUtils.addPagination<Entity>(query, this.alias, fetchSpecification);
     return query.getManyAndCount();
   }
 
