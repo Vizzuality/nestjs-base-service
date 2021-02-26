@@ -3,6 +3,7 @@ import { FetchSpecification } from '../types/fetch-specification.interface';
 
 import { Logger } from '@nestjs/common';
 import { DEFAULT_PAGINATION } from '../config/default.config';
+import { SetUtils } from './set.utils';
 
 type SortDirection = 'ASC' | 'DESC';
 
@@ -17,21 +18,30 @@ export class PaginationUtils<T> {
     aliasTable: string,
     {
       fields = undefined,
+      omitFields = undefined,
       includes = undefined,
       pageSize = DEFAULT_PAGINATION.pageSize,
       pageNumber = DEFAULT_PAGINATION.pageNumber,
       sort = undefined,
     }: FetchSpecification = {
       fields: undefined,
+      omitFields: undefined,
       includes: undefined,
       pageSize: DEFAULT_PAGINATION.pageSize,
       pageNumber: DEFAULT_PAGINATION.pageNumber,
       sort: undefined,
     }
   ) {
-    if (fields && fields.length > 0) {
-      query.select(fields.map((f) => `${aliasTable}.${f}`));
-    }
+    /**
+     * Select fields as per fetch specification: fields from the `fields`
+     * list will be included, less those in the `omitFields` list.
+     */
+    const pickFields = SetUtils.difference(fields, omitFields);
+    query.select(pickFields.map((f) => `"${aliasTable}"."${f}"`));
+
+    /**
+     * Select entities to be included as per fetch specification.
+     */
     if (includes && includes.length > 0) {
       includes.forEach((inc) => {
         const parts = inc.split('.');
@@ -55,23 +65,26 @@ export class PaginationUtils<T> {
             lastPart = alias;
           });
         } else {
-          query.leftJoinAndSelect(`${aliasTable}.${inc}`, inc);
+          query.leftJoinAndSelect(`"${aliasTable}"."${inc}"`, inc);
         }
       });
     }
     return query;
   }
+
   static addPagination<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
     {
       fields = undefined,
+      omitFields = undefined,
       includes = undefined,
       pageSize = DEFAULT_PAGINATION.pageSize,
       pageNumber = DEFAULT_PAGINATION.pageNumber,
       sort = undefined,
     }: FetchSpecification = {
       fields: undefined,
+      omitFields: undefined,
       includes: undefined,
       pageSize: DEFAULT_PAGINATION.pageSize,
       pageNumber: DEFAULT_PAGINATION.pageNumber,
@@ -79,9 +92,16 @@ export class PaginationUtils<T> {
     }
   ) {
     Logger.debug(`pagination: ${sort}`);
-    if (fields && fields.length > 0) {
-      query.select(fields.map((f) => `${aliasTable}.${f}`));
-    }
+    /**
+     * Select fields as per fetch specification: fields from the `fields`
+     * list will be included, less those in the `omitFields` list.
+     */
+    const pickFields = SetUtils.difference(fields, omitFields);
+    query.select(pickFields.map((f) => `"${aliasTable}"."${f}"`));
+
+    /**
+     * Select entities to be included as per fetch specification.
+     */
     if (includes && includes.length > 0) {
       includes.forEach((inc) => {
         const parts = inc.split('.');

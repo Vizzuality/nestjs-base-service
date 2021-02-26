@@ -5,6 +5,7 @@ export interface PaginationSpecification {
 
 export interface FieldsAndIncludesSpecification {
   fields?: string[];
+  omitFields?: string[];
   includes?: string[];
 }
 
