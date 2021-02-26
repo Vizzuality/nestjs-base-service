@@ -33,14 +33,6 @@ Unreleased
 
 - Add support for searching by id using arbitrary id column names.
 
-### Changed
-
-### Fixed
-
-### Deprecated
-
-### Removed
-
 
 ## [0.2.1]
 
