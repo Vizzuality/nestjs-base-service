@@ -1,6 +1,6 @@
 export interface PaginationSpecification {
-  pageSize?: number;
-  pageNumber?: number;
+  pageSize: number;
+  pageNumber: number;
 }
 
 export interface FieldsAndIncludesSpecification {
