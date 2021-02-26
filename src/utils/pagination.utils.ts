@@ -116,19 +116,23 @@ export class PaginationUtils<T> {
             const alias = completed.replace('.', '_');
             if (includes.indexOf(completed) === -1 || completed === inc) {
               if (index === 0) {
-                query.leftJoinAndSelect(`${aliasTable}.${element}`, alias);
+                query.leftJoinAndSelect(`"${aliasTable}"."${element}"`, alias);
               } else {
-                query.leftJoinAndSelect(`${lastPart}.${element}`, alias);
+                query.leftJoinAndSelect(`"${lastPart}"."${element}"`, alias);
               }
             }
 
             lastPart = alias;
           });
         } else {
-          query.leftJoinAndSelect(`${aliasTable}.${inc}`, inc);
+          query.leftJoinAndSelect(`"${aliasTable}"."${inc}"`, inc);
         }
       });
     }
+
+    /**
+     * Apply sorting
+     */
     if (sort) {
       sort.map((s) => {
         // strip orderBy sigils ('+' or '-'), if present
@@ -139,6 +143,10 @@ export class PaginationUtils<T> {
         query.addOrderBy(`"${aliasTable}"."${sortByColumn}"`, sortDirection);
       });
     }
+
+    /**
+     * Apply pagination
+     */
     query.take(pageSize);
     query.skip(pageSize * (pageNumber - 1));
     return query;
