@@ -5,7 +5,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
 import { FetchSpecification } from './types/fetch-specification.interface';
-import { PaginationUtils } from './utils/pagination.utils';
+import { FetchUtils } from './utils/fetch.utils';
 
 /**
  * Base service class for NestJS projects.
@@ -71,7 +71,7 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
     let query = this.repository.createQueryBuilder(this.alias);
     info = { ...info, fetchSpecification };
     query = this.setFilters(query, filters, info);
-    query = PaginationUtils.addPagination<Entity>(query, this.alias, fetchSpecification);
+    query = FetchUtils.processFetchSpecification<Entity>(query, this.alias, fetchSpecification);
     return query.getManyAndCount();
   }
 
