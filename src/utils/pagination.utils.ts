@@ -37,7 +37,7 @@ export class PaginationUtils<T> {
      * list will be included, less those in the `omitFields` list.
      */
     const pickFields = SetUtils.difference(fields, omitFields);
-    query.select(pickFields.map((f) => `"${aliasTable}"."${f}"`));
+    query.select(pickFields.map((f) => `${aliasTable}.${f}`));
 
     /**
      * Select entities to be included as per fetch specification.
@@ -93,11 +93,25 @@ export class PaginationUtils<T> {
   ) {
     Logger.debug(`pagination: ${sort}`);
     /**
-     * Select fields as per fetch specification: fields from the `fields`
-     * list will be included, less those in the `omitFields` list.
+     * Select fields as per fetch specification: if any fields are listed in the
+     * `fields` list, only these will be included in the generated SQL query's
+     * SELECT part.
+     *
+     * Fields from the `omitFields` list will still be included in the generated
+     * query (we could not remove them cleanly without relying on TypeORM's
+     * internals, see https://github.com/typeorm/typeorm/issues/535) and will be
+     * removed from the results before.
+     *
+     * This is not ideal as we'd still query and receive over the wire
+     * potentially large quantities of data which is then going to be discarded
+     * (for example, large GeoJSON data from PostgreSQL geometry columns), and
+     * it would obviously be cleaner to deal with the final list of `SELECT`ed
+     * fields here, but at this stage the current solution should be a decent
+     * tradeoff.
      */
-    const pickFields = SetUtils.difference(fields, omitFields);
-    query.select(pickFields.map((f) => `"${aliasTable}"."${f}"`));
+    if (fields?.length > 0) {
+      query.select(fields.map((f) => `${aliasTable}.${f}`));
+    }
 
     /**
      * Select entities to be included as per fetch specification.
