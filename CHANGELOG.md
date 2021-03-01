@@ -7,22 +7,26 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [0.2.3]
+## [0.3.0]
 
-Unreleased
+2021-03-01
 
 ### Added
 
 - Add support for listing fields to be omitted from a response via the
-  `omitFields` query param.
+  `omitFields` query param. This is only allowed in terms of configuration, but
+  fields listed as `omitFields` are not actually removed from results yet.
 
 ### Changed
 
-### Fixed
-
-### Deprecated
-
-### Removed
+- [BREAKING CHANGE] Rename `PaginationUtils` to `FetchUtils`.
+- [BREAKING CHANGE] Rename `@Pagination()` decorator to
+  `@ProcessFetchSpecification()` (this will likely change again in the future:
+  the new naming is closer to describing what the decorator is used for, but it
+  doesn't align with general naming schemes in NestJS)
+- [BREAKING CHANGE] Processing of fetch specifications used to be done via the
+  static function `PaginationUtils.pagination()`: this is now done via
+  `FetchUtils.processFetchSpecification()`.
 
 
 ## [0.2.2]
