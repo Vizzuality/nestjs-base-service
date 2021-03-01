@@ -16,6 +16,12 @@
     "lint": "eslint 'src/**/**.ts' --fix --ignore-pattern 'src/**/*.spec.ts'",
     "format": "prettier \"**/*.ts\" --ignore-path ./.prettierignore --write && git status"
   },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "dist"
+  ],
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged"
