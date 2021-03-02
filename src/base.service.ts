@@ -62,11 +62,11 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   }
 
   // ↓↓↓ findAll
-  findAll(
+  async findAll(
     fetchSpecification: FetchSpecification,
     info?: Info,
     filters: any = null
-  ): Promise<[Entity[], number]> {
+  ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
     info = { ...info, fetchSpecification };
