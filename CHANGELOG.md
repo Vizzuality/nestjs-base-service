@@ -7,9 +7,24 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [0.4.1]
+## [0.4.2]
 
 Unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+
+## [0.4.1]
+
+2021-03-03
 
 ### Added
 
@@ -20,14 +35,6 @@ Unreleased
   iterating it faster there. After some refactoring, we can now include the
   most recent middleware here.
 - Add support for bypassing pagination (`?noPagination=true`).
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
 
 
 ## [0.4.0]
