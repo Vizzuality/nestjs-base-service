@@ -7,7 +7,32 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.4.1]
+
+Unreleased
+
+### Added
+
+- New fetch specification middleware: reflect fetch specification query
+  parameters into the request object, where fetch specification handler code
+  expects to find them. This middleware was left to downstream users of this
+  module so far, just because there was a single downstream project and we were
+  iterating it faster there. After some refactoring, we can now include the
+  most recent middleware here.
+- Add support for bypassing pagination (`?noPagination=true`).
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+
 ## [0.4.0]
+
+2021-03-02
 
 ### Changed
 
