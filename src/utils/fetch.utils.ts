@@ -22,6 +22,7 @@ export class FetchUtils<T> {
       includes = undefined,
       pageNumber = DEFAULT_PAGINATION.pageNumber,
       pageSize = DEFAULT_PAGINATION.pageSize,
+      disablePagination = DEFAULT_PAGINATION.disablePagination,
       sort = undefined,
     }: FetchSpecification = {
       fields: undefined,
@@ -29,6 +30,7 @@ export class FetchUtils<T> {
       includes: undefined,
       pageNumber: DEFAULT_PAGINATION.pageNumber,
       pageSize: DEFAULT_PAGINATION.pageSize,
+      disablePagination: DEFAULT_PAGINATION.disablePagination,
       sort: undefined,
     }
   ) {
@@ -39,6 +41,7 @@ export class FetchUtils<T> {
         includes,
         pageNumber,
         pageSize,
+        disablePagination,
         sort,
       })}`
     );
@@ -48,10 +51,12 @@ export class FetchUtils<T> {
       fields,
     });
     const queryWithSorting = this.addSorting(queryWithSparseFieldsets, aliasTable, { sort });
-    const queryWithPagination = this.addPagination(queryWithSorting, aliasTable, {
-      pageNumber,
-      pageSize,
-    });
+    const queryWithPagination = disablePagination
+      ? queryWithSorting
+      : this.addPagination(queryWithSorting, aliasTable, {
+          pageNumber,
+          pageSize,
+        });
 
     return queryWithPagination;
   }
