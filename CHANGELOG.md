@@ -7,6 +7,14 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.4.0]
+
+### Changed
+
+- [BREAKING CHANGE] `BaseService.findAll()` is now `async` and allows to return
+  partial entities in its type signature. This allows to implement features such
+  as handling of `omitFields` in classes that inherit from `BaseService`.
+
 ## [0.3.0]
 
 2021-03-01
