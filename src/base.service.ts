@@ -6,13 +6,14 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
 
 import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
+import { omit } from 'lodash';
 
 /**
  * Base service class for NestJS projects.
  *
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
-export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
+export abstract class BaseService<Entity extends object, CreateModel, UpdateModel, Info> {
   constructor(
     protected readonly repository: Repository<Entity>,
     protected alias: string = 'base'
@@ -69,10 +70,21 @@ export abstract class BaseService<Entity, CreateModel, UpdateModel, Info> {
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
-    info = { ...info, fetchSpecification };
+    const _i = { ...info, fetchSpecification };
     query = this.setFilters(query, filters, info);
     query = FetchUtils.processFetchSpecification<Entity>(query, this.alias, fetchSpecification);
-    return query.getManyAndCount();
+    Logger.debug(query.getQueryAndParameters());
+    const entitiesAndCount = await query.getManyAndCount();
+
+    /**
+     * Process `omitFields` - if a user specified any fields in this list,
+     * remove matching props from the items in the result set.
+     */
+    const entities = fetchSpecification?.omitFields?.length
+      ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
+      : entitiesAndCount[0];
+
+    return [entities, entitiesAndCount[1]];
   }
 
   setFilters(query: SelectQueryBuilder<Entity>, filters: any, info?: Info) {
