@@ -1,4 +1,4 @@
-# NestJS GenericService
+# NestJS BaseService
 
 ## An opinionated base service for NestJS
 
@@ -16,8 +16,9 @@ Built with :heartpulse: at [Vizzuality](https://vizzuality.com).
 * [ ] Add support for serialization
 * [ ] Add support for batching of operations
 
+
 ## License
 
-(C) Copyright [Vizzuality](https://vizzuality.com) 2020.
+(C) Copyright [Vizzuality](https://vizzuality.com) 2020-2021.
 
 Distributed under the [MIT](LICENSE) license.
