@@ -9,18 +9,17 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.2]
 
-Unreleased
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
+2021-03-04
 
 ### Fixed
 
+- Query params processed by `FetchSpecificationMiddleware` should not be left in
+  `req.query` - in theory, we should not be fiddling with query params in the
+  request object in case these are needed by other middleware, but since this is
+  an opinionated package, I think it's ok to do so. This release includes a
+  change that does just this - all the query params processed in this middleware
+  are deleted from `req.query` at the end of the middleware function, and they
+  live on as processed properties of `req.fetchSpecification`.
 
 ## [0.4.1]
 
