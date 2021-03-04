@@ -75,6 +75,25 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
       return { column: stat, order: 'ASC' };
     });
 
+    /**
+     * Delete from the request object's query property all the query params we
+     * process in this middleware, since we are passing them on as
+     * `req.fetchSpecification` and they are not needed anymore in their
+     * original format.
+     *
+     * Moreover, if we left these query params in the query object any query
+     * validation pipe which may use whitelisting of properties and forbid
+     * non-whitelisted properties would throw an error.
+     *
+     * E.g. `app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true });`
+     */
+    delete req?.query?.fields;
+    delete req?.query?.omitFields;
+    delete req?.query?.page;
+    delete req?.query?.sort;
+    delete req?.query?.includes;
+    delete req?.query?.disablePagination;
+
     if (!req.fetchSpecification) {
       req.fetchSpecification = {};
     }
