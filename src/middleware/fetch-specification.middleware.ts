@@ -1,19 +1,11 @@
 import { NestMiddleware, Injectable, Logger } from '@nestjs/common';
-import { DEFAULT_PAGINATION } from '../config/default.config';
+import {
+  DEFAULT_FIELDS_AND_INCLUDE_SPECIFICATION,
+  DEFAULT_PAGINATION,
+  DEFAULT_SORT_SPECIFICATION,
+} from '../config/default.config';
 import { parseInt } from 'lodash';
 import { FetchSpecification } from 'types/fetch-specification.interface';
-
-const defaultFetchSpec = {
-  fields: [],
-  includes: [],
-  sort: [],
-};
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-class ConfigPagination {
-  includes?: string[] = [];
-  allowIncludes?: string[] = [];
-}
 
 /**
  * The job of FetchSpecificationMiddleware is to reflect fetch specification
@@ -22,10 +14,10 @@ class ConfigPagination {
 @Injectable()
 export class FetchSpecificationMiddleware implements NestMiddleware {
   use(req: any, _res: any, next: () => void): any {
-    Logger.debug('Reflecting fetch specification metadata from query params to request object');
     const fetchSpecification: FetchSpecification = {
       ...DEFAULT_PAGINATION,
-      ...defaultFetchSpec,
+      ...DEFAULT_FIELDS_AND_INCLUDE_SPECIFICATION,
+      ...DEFAULT_SORT_SPECIFICATION,
       ...req.query,
     };
 
