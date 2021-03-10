@@ -19,7 +19,7 @@ export class FetchUtils<T> {
     {
       fields = undefined,
       omitFields = undefined,
-      includes = undefined,
+      include = undefined,
       pageNumber = DEFAULT_PAGINATION.pageNumber,
       pageSize = DEFAULT_PAGINATION.pageSize,
       disablePagination = DEFAULT_PAGINATION.disablePagination,
@@ -27,7 +27,7 @@ export class FetchUtils<T> {
     }: FetchSpecification = {
       fields: undefined,
       omitFields: undefined,
-      includes: undefined,
+      include: undefined,
       pageNumber: DEFAULT_PAGINATION.pageNumber,
       pageSize: DEFAULT_PAGINATION.pageSize,
       disablePagination: DEFAULT_PAGINATION.disablePagination,
@@ -38,7 +38,7 @@ export class FetchUtils<T> {
       `Applying fetch specification: ${inspect({
         fields,
         omitFields,
-        includes,
+        include,
         pageNumber,
         pageSize,
         disablePagination,
@@ -46,7 +46,7 @@ export class FetchUtils<T> {
       })}`
     );
 
-    const queryWithIncludedEntities = this.addIncludedEntities(query, aliasTable, { includes });
+    const queryWithIncludedEntities = this.addIncludedEntities(query, aliasTable, { include });
     const queryWithSparseFieldsets = this.addFields(queryWithIncludedEntities, aliasTable, {
       fields,
     });
@@ -95,15 +95,15 @@ export class FetchUtils<T> {
   static addIncludedEntities<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
-    { includes = undefined }: Pick<FetchSpecification, 'includes'> = {
-      includes: undefined,
+    { include = undefined }: Pick<FetchSpecification, 'include'> = {
+      include: undefined,
     }
   ) {
     /**
      * Select entities to be included as per fetch specification.
      */
-    if (includes && includes.length > 0) {
-      includes.forEach((inc) => {
+    if (include && include.length > 0) {
+      include.forEach((inc) => {
         const parts = inc.split('.');
         let lastPart = null;
         let completed = '';
@@ -114,18 +114,18 @@ export class FetchUtils<T> {
             }
             completed += element;
             const alias = completed.replace('.', '_');
-            if (includes.indexOf(completed) === -1 || completed === inc) {
+            if (include.indexOf(completed) === -1 || completed === inc) {
               if (index === 0) {
-                query.leftJoinAndSelect(`"${aliasTable}"."${element}"`, alias);
+                query.leftJoinAndSelect(`${aliasTable}.${element}`, alias);
               } else {
-                query.leftJoinAndSelect(`"${lastPart}"."${element}"`, alias);
+                query.leftJoinAndSelect(`${lastPart}.${element}`, alias);
               }
             }
 
             lastPart = alias;
           });
         } else {
-          query.leftJoinAndSelect(`"${aliasTable}"."${inc}"`, inc);
+          query.leftJoinAndSelect(`${aliasTable}.${inc}`, inc);
         }
       });
     }
