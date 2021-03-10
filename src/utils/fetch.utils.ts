@@ -149,7 +149,7 @@ export class FetchUtils<T> {
         // if the first character is '-', sort descending; otherwise, sort
         // ascending
         const sortDirection: SortDirection = s.match(/^-/) ? 'DESC' : 'ASC';
-        query.addOrderBy(`"${aliasTable}"."${sortByColumn}"`, sortDirection);
+        query.addOrderBy(`${aliasTable}.${sortByColumn}`, sortDirection);
       });
     }
 
