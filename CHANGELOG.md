@@ -8,17 +8,21 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.3]
 
-Unreleased
-
-### Added
+2021-03-10
 
 ### Changed
 
-### Deprecated
-
-### Removed
+- Defaults for fetch specification parameters have been cleaned up for
+  consistency and by adding typing where missing.
 
 ### Fixed
+
+- Handling of included resources is now done through the `include` query param,
+  as per JSON:API specification.
+
+- More `"`-wrapping of entity and prop names introduced erroneously in previous
+  release was undone. There are no instances left of this bug in the current
+  code.
 
 
 ## [0.4.2]
