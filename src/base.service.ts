@@ -116,7 +116,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     const idColumn = typeof idProperty === 'string' && idProperty.length > 0 ? idProperty : 'id';
     const query = this.repository.createQueryBuilder(this.alias);
     const queryWithFilters = this.setFiltersGetById(query, info, idProperty);
-    queryWithFilters.andWhere(`"${this.alias}"."${idColumn}" = :id`).setParameter('id', id);
+    queryWithFilters.andWhere(`${this.alias}.${idColumn} = :id`).setParameter('id', id);
     const model = await queryWithFilters.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
