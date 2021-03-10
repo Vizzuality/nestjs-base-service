@@ -47,10 +47,10 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
     // }
 
     /**
-     * @todo Possibly reinstate whitelisting of allowed includes, e.g.
+     * @todo Possibly reinstate whitelisting of allowed included entities, e.g.
      * (...).filter(inc => prePagination.allowIncludes.indexOf(inc) >= 0);
      */
-    fetchSpecification.includes = req?.query?.includes?.split(',');
+    fetchSpecification.include = req?.query?.include?.split(',');
 
     /**
      * @debt We are already interpreting `+` and `-` prefixes in
@@ -83,7 +83,7 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
     delete req?.query?.omitFields;
     delete req?.query?.page;
     delete req?.query?.sort;
-    delete req?.query?.includes;
+    delete req?.query?.include;
     delete req?.query?.disablePagination;
 
     if (!req.fetchSpecification) {
