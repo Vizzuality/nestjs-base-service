@@ -64,20 +64,7 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
      */
     fetchSpecification.include = req?.query?.include?.split(',');
 
-    /**
-     * @debt We are already interpreting `+` and `-` prefixes in
-     * `FetchUtils`, so doing it here must be removed - we can pass the sort
-     * param values as they are to `FetchUtils.processFetchSpecification()`.
-     */
-    fetchSpecification.sort = req?.query?.sort?.split(',').map((stat: string) => {
-      if (stat.startsWith('-')) {
-        return { column: stat.slice(1, stat.length), order: 'DESC' };
-      }
-      if (stat.startsWith('+')) {
-        return { column: stat.slice(1, stat.length), order: 'ASC' };
-      }
-      return { column: stat, order: 'ASC' };
-    });
+    fetchSpecification.sort = req?.query?.sort?.split(',');
 
     /**
      * Delete from the request object's query property all the query params we
