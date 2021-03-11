@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.4.4]
+
+2021-03-11
+
+### Fixed
+
+- Remove double processing of sorting configuration. I am pretty sure I had
+  actually removed this already, but probably misplaced it in some forgotten
+  stash or in a messed-up conflict resolution 🤷.
+
+- Handle bool or bool string for the `disablePagination` value. The type of this
+  should be properly enforced one level downstream, but for the moment the
+  current guards should be enough.
+
+
 ## [0.4.3]
 
 2021-03-10
