@@ -24,8 +24,20 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
     /**
      * If desired, pagination can be disabled for a request by using the
      * `?disablePagination=true` flag in the request query.
+     *
+     * @debt If downstream is using a boolean parse pipe, this value may be a
+     * boolean, otherwise it would be a plain string. I think we should handle
+     * this more robustly. Here we discard anything which is not a string or a
+     * boolean, which I think *is* correct, but this seems also the perfect
+     * scenario where complementing (non-)working neurons with property based
+     * testing may make sense.
      */
-    fetchSpecification.disablePagination = req?.query?.disablePagination?.toLowerCase() === 'true';
+    fetchSpecification.disablePagination =
+      typeof req?.query?.disablePagination === 'string'
+        ? req?.query?.disablePagination.toLowerCase() === 'true'
+        : typeof req?.query?.disablePagination === 'boolean'
+        ? req?.query?.disablePagination
+        : undefined;
 
     const pageSize = parseInt(req?.query?.page?.size);
     fetchSpecification.pageSize =
