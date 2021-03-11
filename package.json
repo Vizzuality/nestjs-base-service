@@ -1,6 +1,6 @@
 {
   "name": "nestjs-base-service",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "An opinionated base service for NestJS apps",
   "license": "MIT",
   "private": false,
