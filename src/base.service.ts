@@ -62,6 +62,25 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return model;
   }
 
+  /**
+   * Utility wrapper around TypeORM's own `SelectQueryBuilder.getRawMany()`, for
+   * cases where getting raw results may be needed, but we'd still want to count
+   * the number of results because this may make sense.
+   *
+   * For example, this may typically make sense (depending on context) for
+   * `DISTINCT` queries, but not for queries that use aggregation functions
+   * (`sum()`, etc.).
+   *
+   * TL;DR this is raw in both senses of returning raw results *and* of leaving
+   * the caller without typical TypeORM safety nets they may be used to, so it
+   * needs to be used judiciously and ideally with at the very least the safety
+   * net of unit tests and property-based tests.
+   */
+  async _getRawManyAndCount(query: SelectQueryBuilder<Entity>): Promise<[any[], number]> {
+    const results = await query.getRawMany();
+    return [results, results.length];
+  }
+
   // ↓↓↓ findAll
   async findAll(
     fetchSpecification: FetchSpecification,
