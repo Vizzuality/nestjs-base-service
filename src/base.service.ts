@@ -85,7 +85,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async findAll(
     fetchSpecification: FetchSpecification,
     info?: Info,
-    filters: any = null
+    filters: Record<string, unknown> | undefined = {}
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     let query = this.repository.createQueryBuilder(this.alias);
@@ -106,7 +106,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return [entities, entitiesAndCount[1]];
   }
 
-  setFilters(query: SelectQueryBuilder<Entity>, filters: any, info?: Info) {
+  setFilters(
+    query: SelectQueryBuilder<Entity>,
+    filters: any,
+    info?: Info
+  ): SelectQueryBuilder<Entity> {
     return query;
   }
   // ↑↑↑ findAll
