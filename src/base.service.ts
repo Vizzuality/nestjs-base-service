@@ -81,6 +81,25 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return [results, results.length];
   }
 
+  /**
+   * Process `omitFields` - if a user specified any fields in this list,
+   * remove matching props from the items in the result set.
+   */
+  _processOmitFields(fetchSpecification: FetchSpecification, entitiesAndCount: [any[], number]): any[] {
+     return fetchSpecification?.omitFields?.length
+     ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
+     : entitiesAndCount[0];
+  }
+
+  _prepareFindAllQuery(fetchSpecification: FetchSpecification, info?: Info, filters: Record<string, unknown> | undefined = {}): SelectQueryBuilder<Entity> {
+    let query = this.repository.createQueryBuilder(this.alias);
+    const _i = { ...info, fetchSpecification };
+    query = this.setFilters(query, filters, info);
+    query = FetchUtils.processFetchSpecification<Entity>(query, this.alias, fetchSpecification);
+    Logger.debug(query.getQueryAndParameters());
+    return query;
+  }
+
   // ↓↓↓ findAll
   async findAll(
     fetchSpecification: FetchSpecification,
