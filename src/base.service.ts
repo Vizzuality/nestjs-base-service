@@ -120,6 +120,23 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return [entities, entitiesAndCount[1]];
   }
 
+  /**
+   * Variant of findAll() that uses getRawManyAndCount() to retrieve results.
+   *
+   * See caveats for getRawManyAndCount() about the use of this.
+   */
+  async findAllRaw(
+    fetchSpecification: FetchSpecification,
+    info?: Info,
+    filters?: any | undefined
+  ): Promise<[Partial<Entity>[], number]> {
+    Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
+    const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
+    const entitiesAndCount = await this._getRawManyAndCount(query);
+    const entities = this._processOmitFields(fetchSpecification, entitiesAndCount);
+    return [entities, entitiesAndCount[1]];
+  }
+
   setFilters(
     query: SelectQueryBuilder<Entity>,
     filters: any,
