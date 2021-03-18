@@ -9,18 +9,15 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.5]
 
-Unreleased
+2021-03-18
 
 ### Added
 
+- Add support for a variant of `findAll()` that returns raw results (to be used
+  with a grain of salt and awareness of possible pitfalls).
 ### Changed
 
-### Deprecated
-
-### Removed
-
-### Fixed
-
+- Refactor parts of `findAll()` now shared with `findAllRaw()`.
 
 ## [0.4.4]
 
