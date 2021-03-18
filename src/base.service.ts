@@ -85,13 +85,20 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * Process `omitFields` - if a user specified any fields in this list,
    * remove matching props from the items in the result set.
    */
-  _processOmitFields(fetchSpecification: FetchSpecification, entitiesAndCount: [any[], number]): any[] {
-     return fetchSpecification?.omitFields?.length
-     ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
-     : entitiesAndCount[0];
+  _processOmitFields(
+    fetchSpecification: FetchSpecification,
+    entitiesAndCount: [any[], number]
+  ): any[] {
+    return fetchSpecification?.omitFields?.length
+      ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
+      : entitiesAndCount[0];
   }
 
-  _prepareFindAllQuery(fetchSpecification: FetchSpecification, info?: Info, filters: Record<string, unknown> | undefined = {}): SelectQueryBuilder<Entity> {
+  _prepareFindAllQuery(
+    fetchSpecification: FetchSpecification,
+    info?: Info,
+    filters: Record<string, unknown> | undefined = {}
+  ): SelectQueryBuilder<Entity> {
     let query = this.repository.createQueryBuilder(this.alias);
     const _i = { ...info, fetchSpecification };
     query = this.setFilters(query, filters, info);
@@ -107,21 +114,9 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     filters: Record<string, unknown> | undefined = {}
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
-    let query = this.repository.createQueryBuilder(this.alias);
-    const _i = { ...info, fetchSpecification };
-    query = this.setFilters(query, filters, info);
-    query = FetchUtils.processFetchSpecification<Entity>(query, this.alias, fetchSpecification);
-    Logger.debug(query.getQueryAndParameters());
+    const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
     const entitiesAndCount = await query.getManyAndCount();
-
-    /**
-     * Process `omitFields` - if a user specified any fields in this list,
-     * remove matching props from the items in the result set.
-     */
-    const entities = fetchSpecification?.omitFields?.length
-      ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
-      : entitiesAndCount[0];
-
+    const entities = this._processOmitFields(fetchSpecification, entitiesAndCount);
     return [entities, entitiesAndCount[1]];
   }
 
