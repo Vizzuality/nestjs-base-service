@@ -1,5 +1,5 @@
 export interface InfoDTO<T> {
-  params?: any;
+  params?: Record<string, unknown>;
   authenticatedUser?: T;
-  others?: any;
+  others?: Record<string, unknown>;
 }
