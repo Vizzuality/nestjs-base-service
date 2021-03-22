@@ -67,6 +67,21 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
     fetchSpecification.sort = req?.query?.sort?.split(',');
 
     /**
+     * @debt Correctly parse filter values that contain url-encoded comma (`,`)
+     * characters. Right now we read filter keys and values from the parsed
+     * query (`req.query`), at which point occurrences of the `%2C` sequence
+     * have already been decoded to `,`.
+     * @debt Also add proper typing. This should start at Object.entries<T>
+     */
+    fetchSpecification.filter = Object.entries<string>(req?.query?.filter).reduce(
+      (acc, current) => {
+        acc[current[0]] = current[1]?.split(',').filter((i) => i);
+        return acc;
+      },
+      {}
+    );
+
+    /**
      * Delete from the request object's query property all the query params we
      * process in this middleware, since we are passing them on as
      * `req.fetchSpecification` and they are not needed anymore in their
