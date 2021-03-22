@@ -9,9 +9,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.6]
 
-Unreleased
+2021-03-22
 
 ### Added
+
+- Support for `filter` query params, e.g.
+  `filter[keyA]=val1,val2&filter[keyB]=val3,val4,val5`.
 
 ### Changed
 
