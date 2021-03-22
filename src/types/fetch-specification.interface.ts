@@ -14,6 +14,11 @@ export interface SortSpecification {
   sort?: string[];
 }
 
+export interface FiltersSpecification {
+  filter?: Record<string, unknown>;
+}
+
 export type FetchSpecification = PaginationSpecification &
   FieldsAndIncludesSpecification &
-  SortSpecification;
+  SortSpecification &
+  FiltersSpecification;
