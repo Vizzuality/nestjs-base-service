@@ -31,14 +31,6 @@ Unreleased
 - Support for `filter` query params, e.g.
   `filter[keyA]=val1,val2&filter[keyB]=val3,val4,val5`.
 
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
 
 ## [0.4.5]
 
