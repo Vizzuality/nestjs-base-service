@@ -165,7 +165,12 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return query;
   }
 
-  async getById(id: string, info?: Info, idProperty?: string): Promise<Entity> {
+  async getById(
+    id: string,
+    info?: Info,
+    fetchSpecification?: FetchSpecification,
+    idProperty?: string
+  ): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
     /**
      * @debt We should sanitize this. We should not put the burden of checking
@@ -173,7 +178,12 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
      */
     const idColumn = typeof idProperty === 'string' && idProperty.length > 0 ? idProperty : 'id';
     const query = this.repository.createQueryBuilder(this.alias);
-    const queryWithFilters = this.setFiltersGetById(query, info, idProperty);
+    const queryWithIncludedEntities = FetchUtils.processSingleEntityFetchSpecification(
+      query,
+      this.alias,
+      pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
+    );
+    const queryWithFilters = this.setFiltersGetById(queryWithIncludedEntities, info, idProperty);
     queryWithFilters.andWhere(`${this.alias}.${idColumn} = :id`).setParameter('id', id);
     const model = await queryWithFilters.getOne();
     if (!model) {
