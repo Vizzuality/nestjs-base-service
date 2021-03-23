@@ -92,30 +92,48 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return omitFields?.length ? entities.map((e) => omit(e, omitFields)) : entities;
   }
 
-  _prepareFindAllQuery(
+  // ↓↓↓ findAll
+  async _prepareFindAllQuery(
     fetchSpecification: FetchSpecification,
-    info?: Info,
-    filters: Record<string, unknown> | undefined = {}
-  ): SelectQueryBuilder<Entity> {
-    let query = this.repository.createQueryBuilder(this.alias);
+    info?: Info
+  ): Promise<SelectQueryBuilder<Entity>> {
+    const query = this.repository.createQueryBuilder(this.alias);
     const _i = { ...info, fetchSpecification };
-    query = this.setFilters(query, filters, info);
-    query = FetchUtils.processFetchSpecification<Entity>(query, this.alias, fetchSpecification);
-    Logger.debug(query.getQueryAndParameters());
+    const processedQuery = await this.extendFindAllQuery(query, fetchSpecification, info);
+    const queryWithFilters = this.setFilters(processedQuery, fetchSpecification?.filter, info);
+    const queryWithFetchSpecificationApplied = FetchUtils.processFetchSpecification<Entity>(
+      queryWithFilters,
+      this.alias,
+      fetchSpecification
+    );
+    Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
+    return queryWithFetchSpecificationApplied;
+  }
+
+  /**
+   * Apply any query transformations as needed, for findAll queries.
+   *
+   * No-op in the base implementation; this function is meant to be overridden
+   * in classes that extend BaseService, if there is a need to extend the query
+   * beyond what is done when applying filters and fetch specification.
+   */
+  async extendFindAllQuery(
+    query: SelectQueryBuilder<Entity>,
+    fetchSpecification: FetchSpecification,
+    info: Info
+  ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
-  // ↓↓↓ findAll
   async findAll(
     fetchSpecification: FetchSpecification,
-    info?: Info,
-    filters: Record<string, unknown> | undefined = {}
+    info?: Info
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
-    const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
+    const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await query.getManyAndCount();
     const entities = this._processOmitFields(
-      { omitFields: fetchSpecification.omitFields },
+      { omitFields: fetchSpecification?.omitFields },
       entitiesAndCount[0]
     );
     return [entities, entitiesAndCount[1]];
@@ -128,14 +146,13 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    */
   async findAllRaw(
     fetchSpecification: FetchSpecification,
-    info?: Info,
-    filters?: any | undefined
+    info?: Info
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
-    const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
+    const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await this._getRawManyAndCount(query);
     const entities = this._processOmitFields(
-      { omitFields: fetchSpecification.omitFields },
+      { omitFields: fetchSpecification?.omitFields },
       entitiesAndCount[0]
     );
     return [entities, entitiesAndCount[1]];
@@ -143,7 +160,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
 
   setFilters(
     query: SelectQueryBuilder<Entity>,
-    filters: any,
+    filters?: unknown,
     info?: Info
   ): SelectQueryBuilder<Entity> {
     return query;
@@ -157,8 +174,16 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   // ↑↑↑ paginate
 
   // ↓↓↓ getById
-  setFiltersGetById(
+  /**
+   * Apply any query transformations as needed, for getById queries.
+   *
+   * No-op in the base implementation; this function is meant to be overridden
+   * in classes that extend BaseService, if there is a need to extend the query
+   * beyond what is done when applying filters and fetch specification.
+   */
+  extendGetByIdQuery(
     query: SelectQueryBuilder<Entity>,
+    fetchSpecification: FetchSpecification,
     info?: Info,
     idProperty?: string
   ): SelectQueryBuilder<Entity> {
@@ -167,8 +192,8 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
 
   async getById(
     id: string,
-    info?: Info,
     fetchSpecification?: FetchSpecification,
+    info?: Info,
     idProperty?: string
   ): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
@@ -178,18 +203,21 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
      */
     const idColumn = typeof idProperty === 'string' && idProperty.length > 0 ? idProperty : 'id';
     const query = this.repository.createQueryBuilder(this.alias);
-    const queryWithIncludedEntities = FetchUtils.processSingleEntityFetchSpecification(
-      query,
+    const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info, idProperty);
+    const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
+      extendedQuery,
       this.alias,
       pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
     );
-    const queryWithFilters = this.setFiltersGetById(queryWithIncludedEntities, info, idProperty);
-    queryWithFilters.andWhere(`${this.alias}.${idColumn} = :id`).setParameter('id', id);
-    const model = await queryWithFilters.getOne();
+    queryWithFetchSpecificationApplied
+      .andWhere(`${this.alias}.${idColumn} = :id`)
+      .setParameter('id', id);
+    Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
+    const model = await queryWithFetchSpecificationApplied.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
-    const entities = this._processOmitFields({ omitFields: fetchSpecification.omitFields }, [
+    const entities = this._processOmitFields({ omitFields: fetchSpecification?.omitFields }, [
       model,
     ]);
     return entities[0];
