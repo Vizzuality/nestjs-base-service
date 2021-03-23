@@ -73,13 +73,12 @@ export class FetchSpecificationMiddleware implements NestMiddleware {
      * have already been decoded to `,`.
      * @debt Also add proper typing. This should start at Object.entries<T>
      */
-    fetchSpecification.filter = Object.entries<string>(req?.query?.filter).reduce(
-      (acc, current) => {
-        acc[current[0]] = current[1]?.split(',').filter((i) => i);
-        return acc;
-      },
-      {}
-    );
+    fetchSpecification.filter = req?.query?.filter
+      ? Object.entries<string>(req?.query?.filter).reduce((acc, current) => {
+          acc[current[0]] = current[1]?.split(',').filter((i) => i);
+          return acc;
+        }, {})
+      : undefined;
 
     /**
      * Delete from the request object's query property all the query params we
