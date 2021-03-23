@@ -64,6 +64,44 @@ export class FetchUtils<T> {
     return queryWithPagination;
   }
 
+  /**
+   * Wrapper over processFetchSpecification(), for single entities.
+   */
+  static processSingleEntityFetchSpecification<T>(
+    query: SelectQueryBuilder<T>,
+    aliasTable: string,
+    {
+      fields = undefined,
+      omitFields = undefined,
+      include = undefined,
+      filter = undefined,
+    }: Pick<FetchSpecification, 'fields' | 'omitFields' | 'include' | 'filter'> = {
+      fields: undefined,
+      omitFields: undefined,
+      include: undefined,
+      filter: undefined,
+    }
+  ) {
+    Logger.debug(
+      `Applying fetch specification: ${inspect({
+        fields,
+        omitFields,
+        include,
+        filter,
+      })}`
+    );
+
+    return this.processFetchSpecification(query, aliasTable, {
+      fields,
+      omitFields,
+      include,
+      filter,
+      disablePagination: true,
+      pageNumber: undefined,
+      pageSize: undefined,
+    });
+  }
+
   static addFields<T>(
     query: SelectQueryBuilder<T>,
     aliasTable: string,
