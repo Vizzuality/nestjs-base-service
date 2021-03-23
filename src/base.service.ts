@@ -6,7 +6,7 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
 
 import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
-import { omit } from 'lodash';
+import { omit, pick } from 'lodash';
 
 /**
  * Base service class for NestJS projects.
@@ -86,12 +86,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * remove matching props from the items in the result set.
    */
   _processOmitFields(
-    fetchSpecification: FetchSpecification,
-    entitiesAndCount: [any[], number]
+    { omitFields }: Pick<FetchSpecification, 'omitFields'>,
+    entities: any[]
   ): any[] {
-    return fetchSpecification?.omitFields?.length
-      ? entitiesAndCount[0].map((e) => omit(e, fetchSpecification.omitFields))
-      : entitiesAndCount[0];
+    return omitFields?.length ? entities.map((e) => omit(e, omitFields)) : entities;
   }
 
   _prepareFindAllQuery(
@@ -116,7 +114,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
     const entitiesAndCount = await query.getManyAndCount();
-    const entities = this._processOmitFields(fetchSpecification, entitiesAndCount);
+    const entities = this._processOmitFields(
+      { omitFields: fetchSpecification.omitFields },
+      entitiesAndCount[0]
+    );
     return [entities, entitiesAndCount[1]];
   }
 
@@ -133,7 +134,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
     const query = this._prepareFindAllQuery(fetchSpecification, info, filters);
     const entitiesAndCount = await this._getRawManyAndCount(query);
-    const entities = this._processOmitFields(fetchSpecification, entitiesAndCount);
+    const entities = this._processOmitFields(
+      { omitFields: fetchSpecification.omitFields },
+      entitiesAndCount[0]
+    );
     return [entities, entitiesAndCount[1]];
   }
 
@@ -175,7 +179,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
-    return model;
+    const entities = this._processOmitFields({ omitFields: fetchSpecification.omitFields }, [
+      model,
+    ]);
+    return entities[0];
   }
   // ↑↑↑ getById
 
