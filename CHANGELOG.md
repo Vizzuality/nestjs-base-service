@@ -7,19 +7,23 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [0.4.7]
+## [0.5.0]
 
-Unreleased
-
+2021-03-23
 ### Added
+
+- Support for processing of meaningful parts of `FetchSpecification` (included
+  entities, sparse fieldsets and omitFields) for singular requests.
 
 ### Changed
 
-### Deprecated
-
-### Removed
-
-### Fixed
+- [BREAKING CHANGE] Signatures of functions related to the `getAll()` and
+  `getById()` request lifecycles have been simplified, to avoid duplication and
+  inconsistencies.
+- [BREAKING CHANGE] `setFiltersGetById()` has been renamed to
+  `extendGetByIdQuery()` to clarify that it is not actually meant to set filters
+  but to add joins and other conditions to the query being assembled.
+- Stricter typing where applicable.
 
 
 ## [0.4.6]
