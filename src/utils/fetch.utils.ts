@@ -33,19 +33,6 @@ export class FetchUtils<T> {
       sort: undefined,
     }
   ) {
-    Logger.debug(
-      `Applying fetch specification: ${inspect({
-        fields,
-        omitFields,
-        include,
-        filter,
-        pageNumber,
-        pageSize,
-        disablePagination,
-        sort,
-      })}`
-    );
-
     const queryWithIncludedEntities = this.addIncludedEntities(query, aliasTable, { include });
     const queryWithSparseFieldsets = this.addFields(queryWithIncludedEntities, aliasTable, {
       fields,
@@ -79,15 +66,6 @@ export class FetchUtils<T> {
       filter: undefined,
     }
   ) {
-    Logger.debug(
-      `Applying fetch specification: ${inspect({
-        fields,
-        omitFields,
-        include,
-        filter,
-      })}`
-    );
-
     return this.processFetchSpecification(query, aliasTable, {
       fields,
       omitFields,
