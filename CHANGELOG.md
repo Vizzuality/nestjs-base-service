@@ -9,15 +9,24 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.5.1]
 
-Unreleased
+2021-03-25
 
 ### Added
 
 ### Changed
 
+- `fetchSpecification` is now optional as a parameter to most functions in the
+  getAll/getById lifecycles; this is to accommodate uses cases where no fetch
+  specification is needed or it cannot be provided for whatever reason.
+- Handling of id fields with name other than `id` has been refactored, removing
+  the utter nonsense that my own earlier implementation was.
+
 ### Deprecated
 
 ### Removed
+
+- Some verbose logging used during development of the initial FetchSpecification
+  implementation has been removed.
 
 ### Fixed
 
