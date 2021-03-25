@@ -11,8 +11,6 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 2021-03-25
 
-### Added
-
 ### Changed
 
 - `fetchSpecification` is now optional as a parameter to most functions in the
@@ -21,14 +19,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - Handling of id fields with name other than `id` has been refactored, removing
   the utter nonsense that my own earlier implementation was.
 
-### Deprecated
-
 ### Removed
 
 - Some verbose logging used during development of the initial FetchSpecification
   implementation has been removed.
-
-### Fixed
 
 
 ## [0.5.0]
