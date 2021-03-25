@@ -1,9 +1,6 @@
 import { SelectQueryBuilder } from 'typeorm';
 import { FetchSpecification } from '../types/fetch-specification.interface';
-
-import { Logger } from '@nestjs/common';
 import { DEFAULT_PAGINATION } from '../config/default.config';
-import { inspect } from 'util';
 
 type SortDirection = 'ASC' | 'DESC';
 

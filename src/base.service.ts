@@ -127,7 +127,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async findAll(
-    fetchSpecification: FetchSpecification,
+    fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
@@ -146,7 +146,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * See caveats for getRawManyAndCount() about the use of this.
    */
   async findAllRaw(
-    fetchSpecification: FetchSpecification,
+    fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
     Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
@@ -184,7 +184,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    */
   extendGetByIdQuery(
     query: SelectQueryBuilder<Entity>,
-    fetchSpecification: FetchSpecification,
+    fetchSpecification?: FetchSpecification,
     info?: Info
   ): SelectQueryBuilder<Entity> {
     return query;
