@@ -16,7 +16,8 @@ import { omit, pick } from 'lodash';
 export abstract class BaseService<Entity extends object, CreateModel, UpdateModel, Info> {
   constructor(
     protected readonly repository: Repository<Entity>,
-    protected alias: string = 'base'
+    protected alias: string = 'base',
+    protected idProperty: string = 'id'
   ) {}
 
   /*
@@ -184,26 +185,17 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   extendGetByIdQuery(
     query: SelectQueryBuilder<Entity>,
     fetchSpecification: FetchSpecification,
-    info?: Info,
-    idProperty?: string
+    info?: Info
   ): SelectQueryBuilder<Entity> {
     return query;
   }
 
-  async getById(
-    id: string,
-    fetchSpecification?: FetchSpecification,
-    info?: Info,
-    idProperty?: string
-  ): Promise<Entity> {
+  async getById(id: string, fetchSpecification?: FetchSpecification, info?: Info): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
-    /**
-     * @debt We should sanitize this. We should not put the burden of checking
-     * that idProperty does not include user input on consumers of our package.
-     */
-    const idColumn = typeof idProperty === 'string' && idProperty.length > 0 ? idProperty : 'id';
+
+    const idColumn = this.idProperty;
     const query = this.repository.createQueryBuilder(this.alias);
-    const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info, idProperty);
+    const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info);
     const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
       extendedQuery,
       this.alias,
