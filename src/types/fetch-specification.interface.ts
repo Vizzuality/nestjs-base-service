@@ -1,7 +1,7 @@
 export interface PaginationSpecification {
-  pageSize: number;
-  pageNumber: number;
-  disablePagination: boolean;
+  pageSize?: number;
+  pageNumber?: number;
+  disablePagination?: boolean;
 }
 
 export interface FieldsAndIncludesSpecification {
