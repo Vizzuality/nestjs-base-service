@@ -193,7 +193,6 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async getById(id: string, fetchSpecification?: FetchSpecification, info?: Info): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
 
-    const idColumn = this.idProperty;
     const query = this.repository.createQueryBuilder(this.alias);
     const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info);
     const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
@@ -202,7 +201,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
     );
     queryWithFetchSpecificationApplied
-      .andWhere(`${this.alias}.${idColumn} = :id`)
+      .andWhere(`${this.alias}.${this.idProperty} = :id`)
       .setParameter('id', id);
     Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     const model = await queryWithFetchSpecificationApplied.getOne();
@@ -266,7 +265,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     await this.validateBeforeUpdate(id, updateModel, info);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersUpdate(query, info);
-    query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
+    query.andWhere(`${this.alias}.${this.idProperty} = :id`).setParameter('id', id);
     let model = await query.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
