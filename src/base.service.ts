@@ -133,11 +133,16 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     Logger.debug(`Finding all ${this.repository.metadata.name}`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await query.getManyAndCount();
+    const extendedEntitiesAndCount = await this.extendFindAllResults(
+      entitiesAndCount,
+      fetchSpecification,
+      info
+    );
     const entities = this._processOmitFields(
       { omitFields: fetchSpecification?.omitFields },
-      entitiesAndCount[0]
+      extendedEntitiesAndCount[0]
     );
-    return [entities, entitiesAndCount[1]];
+    return [entities, extendedEntitiesAndCount[1]];
   }
 
   /**
@@ -152,11 +157,33 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await this._getRawManyAndCount(query);
+    const extendedEntitiesAndCount = await this.extendFindAllResults(
+      entitiesAndCount,
+      fetchSpecification,
+      info
+    );
     const entities = this._processOmitFields(
       { omitFields: fetchSpecification?.omitFields },
-      entitiesAndCount[0]
+      extendedEntitiesAndCount[0]
     );
-    return [entities, entitiesAndCount[1]];
+    return [entities, extendedEntitiesAndCount[1]];
+  }
+
+  /**
+   * At this stage, the results fetched from db can be further reshaped or
+   * extended.
+   *
+   * For example, data fetched from other sources can be added to the entities,
+   * if these are set up as DTOs.
+   *
+   * @todo Proper support for result DTOs should be added later on.
+   */
+  async extendFindAllResults(
+    entitiesAndCount: [any[], number],
+    fetchSpecification?: FetchSpecification,
+    info?: Info
+  ): Promise<[any[], number]> {
+    return entitiesAndCount;
   }
 
   setFilters(
@@ -193,7 +220,6 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async getById(id: string, fetchSpecification?: FetchSpecification, info?: Info): Promise<Entity> {
     Logger.debug(`Getting ${this.alias} by id`);
 
-    const idColumn = this.idProperty;
     const query = this.repository.createQueryBuilder(this.alias);
     const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info);
     const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
@@ -202,17 +228,36 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
     );
     queryWithFetchSpecificationApplied
-      .andWhere(`${this.alias}.${idColumn} = :id`)
+      .andWhere(`${this.alias}.${this.idProperty} = :id`)
       .setParameter('id', id);
     Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     const model = await queryWithFetchSpecificationApplied.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
+    const extendedEntity = this.extendGetByIdResult(model, fetchSpecification, info);
     const entities = this._processOmitFields({ omitFields: fetchSpecification?.omitFields }, [
-      model,
+      extendedEntity,
     ]);
     return entities[0];
+  }
+
+  /**
+   * At this stage, the results fetched from db can be further reshaped or
+   * extended.
+   *
+   * For example, data fetched from other sources can be added to the entity, if
+   * this is set up as a DTO.
+   *
+   * @todo Proper support for result DTOs should be added later on: this
+   * function should then return a `Promise<ResultDTO>` instead.
+   */
+  async extendGetByIdResult(
+    entity: Entity,
+    fetchSpecification?: FetchSpecification,
+    info?: Info
+  ): Promise<Entity> {
+    return entity;
   }
   // ↑↑↑ getById
 
@@ -266,7 +311,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     await this.validateBeforeUpdate(id, updateModel, info);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersUpdate(query, info);
-    query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
+    query.andWhere(`${this.alias}.${this.idProperty} = :id`).setParameter('id', id);
     let model = await query.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
