@@ -7,6 +7,20 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.5.2
+
+2021-04-20
+
+## Added
+
+- Initial support for `ResultDTO`-like processing: we don't support yet using
+  a `ResultDTO` distinct from `Entity` as generic parameters to `BaseService`,
+  but if the `Entity` class is set up to include properties that do not map
+  directly to database columns it can be used as a sort of DTO, and the hooks
+  added in this release allow to reshape/extend data after it has been fetched
+  from db.
+
+
 ## [0.5.1]
 
 2021-03-25
