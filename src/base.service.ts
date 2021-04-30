@@ -1,4 +1,4 @@
-import { Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Logger, NotFoundException, ForbiddenException, LoggerService } from '@nestjs/common';
 
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
@@ -8,17 +8,32 @@ import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
 import { omit, pick } from 'lodash';
 
+class NoOpLogger implements LoggerService {
+  log(message: unknown) {}
+  error(message: unknown, trace: unknown) {}
+  warn(message: unknown) {}
+  debug(message: unknown) {}
+  verbose(message: unknown) {}
+}
+
+export type BaseServiceOptions = { idProperty?: string; logging?: { muteAll?: boolean } };
 /**
  * Base service class for NestJS projects.
  *
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
 export abstract class BaseService<Entity extends object, CreateModel, UpdateModel, Info> {
+  protected readonly logger: Logger | NoOpLogger;
+  private readonly options: BaseServiceOptions;
+
   constructor(
     protected readonly repository: Repository<Entity>,
     protected alias: string = 'base',
-    protected idProperty: string = 'id'
-  ) {}
+    protected serviceOptions: BaseServiceOptions
+  ) {
+    this.options = Object.assign({ idProperty: 'id', logging: { muteAll: false } }, serviceOptions);
+    this.logger = this.options.logging?.muteAll ? new NoOpLogger() : new Logger(this.alias);
+  }
 
   /*
    * setDataCreate and setDataUpdate will usually be overwritten
@@ -107,7 +122,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       this.alias,
       fetchSpecification
     );
-    Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
+    this.logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     return queryWithFetchSpecificationApplied;
   }
 
@@ -130,7 +145,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
-    Logger.debug(`Finding all ${this.repository.metadata.name}`);
+    this.logger.debug(`Finding all ${this.repository.metadata.name}`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await query.getManyAndCount();
     const extendedEntitiesAndCount = await this.extendFindAllResults(
@@ -154,7 +169,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
-    Logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
+    this.logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await this._getRawManyAndCount(query);
     const extendedEntitiesAndCount = await this.extendFindAllResults(
@@ -218,7 +233,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async getById(id: string, fetchSpecification?: FetchSpecification, info?: Info): Promise<Entity> {
-    Logger.debug(`Getting ${this.alias} by id`);
+    this.logger.debug(`Getting ${this.alias} by id`);
 
     const query = this.repository.createQueryBuilder(this.alias);
     const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info);
@@ -230,7 +245,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     queryWithFetchSpecificationApplied
       .andWhere(`${this.alias}.${this.idProperty} = :id`)
       .setParameter('id', id);
-    Logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
+    this.logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     const model = await queryWithFetchSpecificationApplied.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
@@ -271,7 +286,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async create(createModel: CreateModel, info?: Info): Promise<Entity> {
-    Logger.debug(`Creating ${this.alias}`);
+    this.logger.debug(`Creating ${this.alias}`);
 
     await this.validateBeforeCreate(createModel, info);
     const model = await this.setDataCreate(createModel, info);
@@ -306,7 +321,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async update(id: string, updateModel: UpdateModel, info?: Info): Promise<Entity> {
-    Logger.debug(`Updating ${this.alias}`);
+    this.logger.debug(`Updating ${this.alias}`);
     await this.actionBeforeUpdate(id, updateModel, info);
     await this.validateBeforeUpdate(id, updateModel, info);
     let query = this.repository.createQueryBuilder(this.alias);
@@ -339,7 +354,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async remove(id: string, info?: Info): Promise<void> {
-    Logger.debug(`Removing a ${this.alias}`);
+    this.logger.debug(`Removing a ${this.alias}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersDelete(query, info);
     query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
@@ -355,7 +370,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
 
   async removeMany(idList: string[], info?: Info): Promise<void> {
-    Logger.debug(`Removing multiple ${this.alias}`);
+    this.logger.debug(`Removing multiple ${this.alias}`);
     const query = this.repository
       .createQueryBuilder(this.alias)
       .where(`${this.alias}.id IN (:...idList)`, { idList });
