@@ -243,7 +243,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
     );
     queryWithFetchSpecificationApplied
-      .andWhere(`${this.alias}.${this.idProperty} = :id`)
+      .andWhere(`${this.alias}.${this.options.idProperty} = :id`)
       .setParameter('id', id);
     this.logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     const model = await queryWithFetchSpecificationApplied.getOne();
@@ -326,7 +326,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     await this.validateBeforeUpdate(id, updateModel, info);
     let query = this.repository.createQueryBuilder(this.alias);
     query = this.setFiltersUpdate(query, info);
-    query.andWhere(`${this.alias}.${this.idProperty} = :id`).setParameter('id', id);
+    query.andWhere(`${this.alias}.${this.options.idProperty} = :id`).setParameter('id', id);
     let model = await query.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
