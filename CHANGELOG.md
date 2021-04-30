@@ -7,6 +7,20 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.6.0
+
+2021-04-30
+
+### Added
+
+- Ability to mute logger fully (e.g. for CI).
+
+### Changed
+
+- [BREAKING CHANGE] `idProperty` is now part of the service `options` provided
+  to the constructor.
+
+
 ## 0.5.2
 
 2021-04-20
