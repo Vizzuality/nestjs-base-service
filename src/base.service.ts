@@ -376,7 +376,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       .where(`${this.alias}.id IN (:...idList)`, { idList });
     const foundRecords = await query.getMany();
     if (foundRecords && foundRecords.length) {
-      this.repository.remove(foundRecords);
+      await this.repository.remove(foundRecords);
     }
   }
   // ↑↑↑ delete
