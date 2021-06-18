@@ -9,9 +9,17 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 0.6.1
 
-### Changed
+Unreleased
+
+### Added
+
+- Support for extending result DTO during create and update lifecycles
+  ([#12](https://github.com/Vizzuality/nestjs-base-service/issues/12)).
+
+### Fixed
 
 - `extendGetByIdQuery()` was not `await`ed for. This has now been fixed.
+- `remove()` was not `await`ed for in `removeMany()`. This has now been fixed.
 
 ## 0.6.0
 
