@@ -7,6 +7,12 @@ and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.6.1
+
+### Changed
+
+- `extendGetByIdQuery()` was not `await`ed for. This has now been fixed.
+
 ## 0.6.0
 
 2021-04-30
