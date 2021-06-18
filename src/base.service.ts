@@ -250,7 +250,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
-    const extendedEntity = this.extendGetByIdResult(model, fetchSpecification, info);
+    const extendedEntity = await this.extendGetByIdResult(model, fetchSpecification, info);
     const entities = this._processOmitFields({ omitFields: fetchSpecification?.omitFields }, [
       extendedEntity,
     ]);
