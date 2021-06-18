@@ -285,6 +285,20 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return;
   }
 
+  /**
+   * At this stage, the results fetched from db can be further reshaped or
+   * extended.
+   *
+   * For example, data fetched from other sources can be added to the entity, if
+   * this is set up as a DTO.
+   *
+   * @todo Proper support for result DTOs should be added later on: this
+   * function should then return a `Promise<ResultDTO>` instead.
+   */
+  extendCreateResult(entity: Entity, createModel: CreateModel, info?: Info): Entity {
+    return entity;
+  }
+
   async create(createModel: CreateModel, info?: Info): Promise<Entity> {
     this.logger.debug(`Creating ${this.alias}`);
 
@@ -295,8 +309,9 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       this.repository
         .save(model)
         .then((result) => {
-          if (this.actionAfterCreate) this.actionAfterCreate(result, createModel, info);
-          resolve(result);
+          const extendedResult = this.extendCreateResult(result, createModel, info);
+          if (this.actionAfterCreate) this.actionAfterCreate(extendedResult, createModel, info);
+          resolve(extendedResult);
         })
         .catch((e) => reject(e));
     });
@@ -320,6 +335,20 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return;
   }
 
+  /**
+   * At this stage, the results fetched from db can be further reshaped or
+   * extended.
+   *
+   * For example, data fetched from other sources can be added to the entity, if
+   * this is set up as a DTO.
+   *
+   * @todo Proper support for result DTOs should be added later on: this
+   * function should then return a `Promise<ResultDTO>` instead.
+   */
+  extendUpdateResult(entity: Entity, updateModel: UpdateModel, info?: Info): Entity {
+    return entity;
+  }
+
   async update(id: string, updateModel: UpdateModel, info?: Info): Promise<Entity> {
     this.logger.debug(`Updating ${this.alias}`);
     await this.actionBeforeUpdate(id, updateModel, info);
@@ -336,8 +365,9 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       this.repository
         .save(model)
         .then((result) => {
-          if (this.actionAfterUpdate) this.actionAfterUpdate(result, updateModel, info);
-          resolve(result);
+          const extendedResult = this.extendUpdateResult(result, updateModel, info);
+          if (this.actionAfterUpdate) this.actionAfterUpdate(extendedResult, updateModel, info);
+          resolve(extendedResult);
         })
         .catch((e) => reject(e));
     });
