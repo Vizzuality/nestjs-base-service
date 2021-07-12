@@ -6,7 +6,7 @@ import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginat
 
 import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
-import { omit, pick } from 'lodash';
+import { omit, pick, castArray } from 'lodash';
 
 class NoOpLogger implements LoggerService {
   log(message: unknown) {}
@@ -206,8 +206,35 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     filters?: unknown,
     info?: Info
   ): SelectQueryBuilder<Entity> {
+    return this._processBaseFilters(query, filters, Object.keys(filters || {}));
+  }
+
+  private _processBaseFilters<Filters>(
+    query: SelectQueryBuilder<Entity>,
+    filters: Filters,
+    filterKeys: any
+  ): SelectQueryBuilder<Entity> {
+    if (filters) {
+      Object.entries(filters)
+        .filter((i) => Array.from(filterKeys).includes(i[0]))
+        .forEach((i) => this._processBaseFilter(query, i));
+    }
+
     return query;
   }
+
+  private _processBaseFilter(
+    query: SelectQueryBuilder<Entity>,
+    [filterKey, filterValues]: [string, unknown]
+  ): SelectQueryBuilder<Entity> {
+    if (Array.isArray(filterValues) && filterValues.length) {
+      query.andWhere(`${this.alias}.${filterKey} IN (:...${filterKey}Values)`, {
+        [`${filterKey}Values`]: castArray(filterValues),
+      });
+    }
+    return query;
+  }
+
   // ↑↑↑ findAll
 
   // ↓↓↓ paginate
