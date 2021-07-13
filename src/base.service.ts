@@ -9,10 +9,15 @@ import { FetchUtils } from './utils/fetch.utils';
 import { omit, pick, castArray } from 'lodash';
 
 class NoOpLogger implements LoggerService {
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   log(message: unknown) {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   error(message: unknown, trace: unknown) {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   warn(message: unknown) {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   debug(message: unknown) {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   verbose(message: unknown) {}
 }
 

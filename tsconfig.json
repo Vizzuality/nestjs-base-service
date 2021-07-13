@@ -8,6 +8,7 @@
     "target": "es2019",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./",
     "baseUrl": "./src",
     "incremental": true,
     "esModuleInterop": true,
@@ -15,4 +16,4 @@
   },
   "exclude": ["node_modules", "dist"]
 }
-  
+
