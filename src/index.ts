@@ -3,5 +3,4 @@ export * from './dto/info.dto';
 export * from './base.service';
 export * from './types/fetch-specification.interface';
 export * from './decorators/process-fetch-specification.decorator';
-export * from './middleware/fetch-specification.middleware';
 export * from './utils/fetch.utils';
