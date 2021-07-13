@@ -3,8 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic
-Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## 0.7.0
+
+- `FetchSpecificationMiddleware` removed.
+  - Equivalent functionality has been moved into the `ProcessFetchSpecification` request parameter decorator.
+- `ProcessFetchSpecification` decorator now accepts an optional whitelist of filtering parameters it allows.
+- `BaseService` now has a working basic built-in filtering functionality.
 
 
 ## 0.6.1
