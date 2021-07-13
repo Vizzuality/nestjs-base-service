@@ -208,7 +208,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
 
   setFilters(
     query: SelectQueryBuilder<Entity>,
-    filters?: unknown,
+    filters?: Record<string, any>,
     info?: Info
   ): SelectQueryBuilder<Entity> {
     return this._processBaseFilters(query, filters, Object.keys(filters || {}));
