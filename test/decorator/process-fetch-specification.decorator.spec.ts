@@ -3,19 +3,22 @@ import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-hos
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 import {
   ProcessFetchSpecification,
-  ProcessFetchSpecificationArguments
+  ProcessFetchSpecificationArguments,
 } from 'decorators/process-fetch-specification.decorator';
-
+import 'reflect-metadata';
 
 describe('Test ProcessFetchSpecification decorator', () => {
   function getParamDecoratorFactory() {
     class TestController {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
-      public testHTTPMethodImplementation(@ProcessFetchSpecification() value) {
-      }
+      public testHTTPMethodImplementation(@ProcessFetchSpecification() value) {}
     }
 
-    const args = Reflect.getMetadata(ROUTE_ARGS_METADATA, TestController, 'testHTTPMethodImplementation');
+    const args = Reflect.getMetadata(
+      ROUTE_ARGS_METADATA,
+      TestController,
+      'testHTTPMethodImplementation'
+    );
     return args[Object.keys(args)[0]].factory;
   }
 
@@ -28,7 +31,10 @@ describe('Test ProcessFetchSpecification decorator', () => {
     const mockDecoratorData = new ExecutionContextHost([req, res]);
     const factory = getParamDecoratorFactory();
     const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = {};
-    const processFetchSpecificationResult = factory(processFetchSpecificationResultArguments, mockDecoratorData);
+    const processFetchSpecificationResult = factory(
+      processFetchSpecificationResultArguments,
+      mockDecoratorData
+    );
     expect(processFetchSpecificationResult.filter).toStrictEqual(undefined);
   });
 
@@ -40,8 +46,13 @@ describe('Test ProcessFetchSpecification decorator', () => {
     const res = httpMock.createResponse();
     const mockDecoratorData = new ExecutionContextHost([req, res]);
     const factory = getParamDecoratorFactory();
-    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = { allowedFilters: ['foo'] };
-    const processFetchSpecificationResult = factory(processFetchSpecificationResultArguments, mockDecoratorData);
+    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = {
+      allowedFilters: ['foo'],
+    };
+    const processFetchSpecificationResult = factory(
+      processFetchSpecificationResultArguments,
+      mockDecoratorData
+    );
     expect(processFetchSpecificationResult.filter).toStrictEqual(undefined);
   });
 
@@ -51,15 +62,20 @@ describe('Test ProcessFetchSpecification decorator', () => {
       url: '/get',
       query: {
         filter: {
-          foo: 'bar'
-        }
-      }
+          foo: 'bar',
+        },
+      },
     });
     const res = httpMock.createResponse();
     const mockDecoratorData = new ExecutionContextHost([req, res]);
     const factory = getParamDecoratorFactory();
-    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = { allowedFilters: ['foo'] };
-    const processFetchSpecificationResult = factory(processFetchSpecificationResultArguments, mockDecoratorData);
+    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = {
+      allowedFilters: ['foo'],
+    };
+    const processFetchSpecificationResult = factory(
+      processFetchSpecificationResultArguments,
+      mockDecoratorData
+    );
     expect(processFetchSpecificationResult.filter).toStrictEqual({ foo: ['bar'] });
   });
 
@@ -69,14 +85,18 @@ describe('Test ProcessFetchSpecification decorator', () => {
       url: '/get',
       query: {
         filter: {
-          foo: 'bar'
-        }
-      }
+          foo: 'bar',
+        },
+      },
     });
     const res = httpMock.createResponse();
     const mockDecoratorData = new ExecutionContextHost([req, res]);
     const factory = getParamDecoratorFactory();
-    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = { allowedFilters: ['goo'] };
-    expect(() => factory(processFetchSpecificationResultArguments, mockDecoratorData)).toThrowError(`Invalid filter key: foo`);
+    const processFetchSpecificationResultArguments: ProcessFetchSpecificationArguments = {
+      allowedFilters: ['goo'],
+    };
+    expect(() => factory(processFetchSpecificationResultArguments, mockDecoratorData)).toThrowError(
+      `Invalid filter key: foo`
+    );
   });
 });

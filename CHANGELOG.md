@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.8.0 
+
+2021-11-04
+
+- Bumped `nodejs` requirement to v14.17+
+- Updated all dependencies
+- Added `typeorm` as a `peerDependency`
+
 ## 0.7.1
 
 - Minor improvements to the deployment workflow.
@@ -20,8 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## 0.6.1
-
-Unreleased
 
 ### Added
 
