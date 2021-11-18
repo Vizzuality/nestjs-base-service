@@ -1,6 +1,6 @@
 {
   "name": "nestjs-base-service",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "An opinionated base service for NestJS apps",
   "license": "MIT",
   "private": false,
@@ -26,7 +26,7 @@
     "dist"
   ],
   "engines": {
-    "node": "^14.17"
+    "node": ">14.17"
   },
   "husky": {
     "hooks": {
