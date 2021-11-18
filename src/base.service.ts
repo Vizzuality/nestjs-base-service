@@ -34,7 +34,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   constructor(
     protected readonly repository: Repository<Entity>,
     protected alias: string = 'base',
-    protected serviceOptions: BaseServiceOptions
+    protected serviceOptions: BaseServiceOptions,
   ) {
     this.options = Object.assign({ idProperty: 'id', logging: { muteAll: false } }, serviceOptions);
     this.logger = this.options.logging?.muteAll ? new NoOpLogger() : new Logger(this.alias);
