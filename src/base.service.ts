@@ -121,7 +121,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     const query = this.repository.createQueryBuilder(this.alias);
     const _i = { ...info, fetchSpecification };
     const processedQuery = await this.extendFindAllQuery(query, fetchSpecification, info);
-    const queryWithFilters = this.setFilters(processedQuery, fetchSpecification?.filter, info);
+    const queryWithFilters = await this.setFilters(processedQuery, fetchSpecification?.filter, info);
     const queryWithFetchSpecificationApplied = FetchUtils.processFetchSpecification<Entity>(
       queryWithFilters,
       this.alias,
@@ -206,11 +206,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return entitiesAndCount;
   }
 
-  setFilters(
+  async setFilters(
     query: SelectQueryBuilder<Entity>,
     filters?: Record<string, any>,
     info?: Info
-  ): SelectQueryBuilder<Entity> {
+  ): Promise<SelectQueryBuilder<Entity>> {
     return this._processBaseFilters(query, filters, Object.keys(filters || {}));
   }
 
@@ -327,7 +327,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * @todo Proper support for result DTOs should be added later on: this
    * function should then return a `Promise<ResultDTO>` instead.
    */
-  extendCreateResult(entity: Entity, createModel: CreateModel, info?: Info): Entity {
+  async extendCreateResult(entity: Entity, createModel: CreateModel, info?: Info): Promise<Entity> {
     return entity;
   }
 
@@ -340,9 +340,9 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return new Promise((resolve, reject) => {
       this.repository
         .save(model)
-        .then((result) => {
-          const extendedResult = this.extendCreateResult(result, createModel, info);
-          if (this.actionAfterCreate) this.actionAfterCreate(extendedResult, createModel, info);
+        .then(async (result) => {
+          const extendedResult = await this.extendCreateResult(result, createModel, info);
+          if (this.actionAfterCreate) await this.actionAfterCreate(extendedResult, createModel, info);
           resolve(extendedResult);
         })
         .catch((e) => reject(e));
@@ -355,7 +355,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return;
   }
 
-  setFiltersUpdate(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
+  async setFiltersUpdate(query: SelectQueryBuilder<Entity>, info?: Info): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
@@ -377,7 +377,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * @todo Proper support for result DTOs should be added later on: this
    * function should then return a `Promise<ResultDTO>` instead.
    */
-  extendUpdateResult(entity: Entity, updateModel: UpdateModel, info?: Info): Entity {
+  async extendUpdateResult(entity: Entity, updateModel: UpdateModel, info?: Info): Promise<Entity> {
     return entity;
   }
 
@@ -386,7 +386,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     await this.actionBeforeUpdate(id, updateModel, info);
     await this.validateBeforeUpdate(id, updateModel, info);
     let query = this.repository.createQueryBuilder(this.alias);
-    query = this.setFiltersUpdate(query, info);
+    query = await this.setFiltersUpdate(query, info);
     query.andWhere(`${this.alias}.${this.options.idProperty} = :id`).setParameter('id', id);
     let model = await query.getOne();
     if (!model) {
@@ -396,9 +396,9 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return new Promise((resolve, reject) => {
       this.repository
         .save(model)
-        .then((result) => {
-          const extendedResult = this.extendUpdateResult(result, updateModel, info);
-          if (this.actionAfterUpdate) this.actionAfterUpdate(extendedResult, updateModel, info);
+        .then(async (result) => {
+          const extendedResult = await this.extendUpdateResult(result, updateModel, info);
+          if (this.actionAfterUpdate) await this.actionAfterUpdate(extendedResult, updateModel, info);
           resolve(extendedResult);
         })
         .catch((e) => reject(e));
@@ -407,24 +407,24 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   // ↑↑↑ update
 
   // ↓↓↓ delete
-  setFiltersDelete(query: SelectQueryBuilder<Entity>, info?: Info): SelectQueryBuilder<Entity> {
+  async setFiltersDelete(query: SelectQueryBuilder<Entity>, info?: Info): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
-  canBeRemoved(id: string, model: Entity, info?: Info): boolean {
+  async canBeRemoved(id: string, model: Entity, info?: Info): Promise<boolean> {
     return true;
   }
 
   async remove(id: string, info?: Info): Promise<void> {
     this.logger.debug(`Removing a ${this.alias}`);
     let query = this.repository.createQueryBuilder(this.alias);
-    query = this.setFiltersDelete(query, info);
+    query = await this.setFiltersDelete(query, info);
     query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
     const model = await query.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
     }
-    if (this.canBeRemoved(id, model, info)) {
+    if (await this.canBeRemoved(id, model, info)) {
       await this.repository.remove(model);
     } else {
       throw new ForbiddenException(`No suitable permissions to delete this ${this.alias}.`);
