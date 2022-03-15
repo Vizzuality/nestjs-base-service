@@ -256,11 +256,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * in classes that extend BaseService, if there is a need to extend the query
    * beyond what is done when applying filters and fetch specification.
    */
-  extendGetByIdQuery(
+  async extendGetByIdQuery(
     query: SelectQueryBuilder<Entity>,
     fetchSpecification?: FetchSpecification,
     info?: Info
-  ): SelectQueryBuilder<Entity> {
+  ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
@@ -268,7 +268,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     this.logger.debug(`Getting ${this.alias} by id`);
 
     const query = this.repository.createQueryBuilder(this.alias);
-    const extendedQuery = this.extendGetByIdQuery(query, fetchSpecification, info);
+    const extendedQuery = await this.extendGetByIdQuery(query, fetchSpecification, info);
     const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
       extendedQuery,
       this.alias,
