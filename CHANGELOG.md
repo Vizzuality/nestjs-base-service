@@ -10,13 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 2022-03-15
 
+This release brings breaking changes to most of the auxiliary methods of
+`BaseService`, making them `async` where they were not so already, so that users
+of this module can await on async operations at every stage of request
+lifecycles handled via BaseService.
+
+Most of these methods should have been `async` all along, similarly to
+`extendFindAllQuery()`, in case module users need to perform async operations
+throughout any of these lifecycle hooks.
+
 ### Changed
 
-- [BREAKING CHANGE] `BaseService.extendGetByIdQuery()` is now `async` as it
-  should have been all along, similarly to `extendFindAllQuery()`, in case
-  anyone needs to perform async operations while extending or deciding how to
-  extend the query.
-
+- [BREAKING CHANGE] `BaseService.extendGetByIdQuery()` is now `async`
+- [BREAKING CHANGE] `BaseService.extendCreateResult()` and
+  `BaseService.actionAfterCreate()` are now `async` too; alas
+  `actionAfterCreate()` was already `async` but not being `await`ed for
+- [BREAKING CHANGE] `BaseService.setFilters()`, `BaseService.setFiltersUpdate()`
+  and `BaseService.setFiltersDelete()` are now `async`
+- [BREAKING CHANGE] `BaseService.actionAfterUpdate()` is now `async`
+- [BREAKING CHANGE] `BaseService.canBeRemoved()` is now `async`
 
 ## 0.8.2
 
