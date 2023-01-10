@@ -28,7 +28,7 @@ export type BaseServiceOptions = { idProperty?: string; logging?: { muteAll?: bo
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
 export abstract class BaseService<Entity extends object, CreateModel, UpdateModel, Info> {
-  protected readonly logger: Logger | NoOpLogger;
+  protected logger: Logger | NoOpLogger;
   private readonly options: BaseServiceOptions;
 
   constructor(
@@ -150,7 +150,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
-    this.logger.debug(`Finding all ${this.repository.metadata.name}`);
+    this.logger.debug(`Finding all ${this.alias}`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await query.getManyAndCount();
     const extendedEntitiesAndCount = await this.extendFindAllResults(
@@ -174,7 +174,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     fetchSpecification?: FetchSpecification,
     info?: Info
   ): Promise<[Partial<Entity>[], number]> {
-    this.logger.debug(`Finding all ${this.repository.metadata.name} as raw results`);
+    this.logger.debug(`Finding all ${this.alias} as raw results`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
     const entitiesAndCount = await this._getRawManyAndCount(query);
     const extendedEntitiesAndCount = await this.extendFindAllResults(
