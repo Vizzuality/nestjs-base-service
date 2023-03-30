@@ -214,7 +214,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return this._processBaseFilters(query, filters, Object.keys(filters || {}));
   }
 
-  private _processBaseFilters<Filters>(
+  protected _processBaseFilters<Filters>(
     query: SelectQueryBuilder<Entity>,
     filters: Filters,
     filterKeys: any
@@ -228,7 +228,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return query;
   }
 
-  private _processBaseFilter(
+  protected _processBaseFilter(
     query: SelectQueryBuilder<Entity>,
     [filterKey, filterValues]: [string, unknown]
   ): SelectQueryBuilder<Entity> {
