@@ -1,6 +1,6 @@
 {
   "name": "nestjs-base-service",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "An opinionated base service for NestJS apps",
   "license": "MIT",
   "private": false,
@@ -15,7 +15,7 @@
     "build": "yarn run clean && tsc --project tsconfig.build.json",
     "test": "jest --config test/jest-config.json -i",
     "test:cov": "jest --config test/jest-config.json --coverage",
-    "prepublishOnly": "tsc --project .",
+    "prepublishOnly": "yarn run build",
     "lint": "eslint 'src/**/**.ts' --fix --ignore-pattern 'src/**/*.spec.ts'",
     "format": "prettier \"**/*.ts\" --ignore-path ./.prettierignore --write && git status"
   },
