@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { parseInt, pickBy } from 'lodash';
+import { pickBy } from '../utils/object.utils';
 import { FetchSpecification } from '../types/fetch-specification.interface';
 import {
   DEFAULT_FIELDS_AND_INCLUDE_SPECIFICATION,
@@ -17,7 +17,7 @@ export interface ProcessFetchSpecificationArguments {
 export const ProcessFetchSpecification = createParamDecorator(
   (
     processFetchSpecificationArgs: ProcessFetchSpecificationArguments = {},
-    ctx: ExecutionContext
+    ctx: ExecutionContext,
   ) => {
     const request = ctx.switchToHttp().getRequest();
 
@@ -43,14 +43,14 @@ export const ProcessFetchSpecification = createParamDecorator(
       typeof request?.query?.disablePagination === 'string'
         ? request?.query?.disablePagination.toLowerCase() === 'true'
         : typeof request?.query?.disablePagination === 'boolean'
-        ? request?.query?.disablePagination
-        : undefined;
+          ? request?.query?.disablePagination
+          : undefined;
 
-    const pageSize = parseInt(request?.query?.page?.size);
+    const pageSize = Number.parseInt(request?.query?.page?.size, 10);
     fetchSpecification.pageSize =
       typeof pageSize === 'number' && pageSize > 0 ? pageSize : undefined;
 
-    const pageNumber = parseInt(request?.query?.page?.number);
+    const pageNumber = Number.parseInt(request?.query?.page?.number, 10);
     fetchSpecification.pageNumber =
       typeof pageNumber === 'number' && pageNumber > 0 ? pageNumber : undefined;
 
@@ -127,5 +127,5 @@ export const ProcessFetchSpecification = createParamDecorator(
     }
 
     return request.fetchSpecification;
-  }
+  },
 );

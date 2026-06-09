@@ -2,59 +2,184 @@
 
 ## An opinionated base service for NestJS
 
-[![Test Coverage](https://api.codeclimate.com/v1/badges/0b07bfc6bc5725ebec5f/test_coverage)](https://codeclimate.com/github/Vizzuality/nestjs-base-service/test_coverage)
-
 Built with :heartpulse: at [Vizzuality](https://vizzuality.com).
 
-## Roadmap
+`nestjs-base-service` gives your [TypeORM](https://typeorm.io)-backed NestJS
+services a batteries-included CRUD layer with a JSON:API-flavoured fetch
+specification: pagination, sorting, sparse fieldsets, relation includes and
+filtering parsed straight from the request query, plus a set of extension hooks
+to customise every step.
 
-* [ ] Add tutorial
-* [ ] Add tests
-* [ ] Implement transaction support
-* [ ] Implement opinionated batching
-* [ ] Add support for validation (via plugin?)
-* [ ] Add support for auditing (via plugin?)
-* [ ] Add support for pagination
-* [ ] Add support for serialization
-* [ ] Add support for batching of operations
+## Requirements
 
+- Node.js >= 20
+- `@nestjs/common` >= 11 (peer dependency)
+- `typeorm` >= 0.3.20 (peer dependency)
+- `class-validator` / `class-transformer` (optional peers — only if you validate DTOs)
 
-## License
+The package ships both ESM and CommonJS builds with full type definitions, so it
+works in `import` and `require` consumers alike.
 
-(C) Copyright [Vizzuality](https://vizzuality.com) 2020-2021.
+## Install
 
-Distributed under the [MIT](LICENSE) license.
-
+```bash
+pnpm add nestjs-base-service
+# or: npm install nestjs-base-service / yarn add nestjs-base-service
+```
 
 ## Usage
 
-### Filtering on listing GET requests
+### 1. Define a service
 
-- Add the necessary decorator to your request parsing, on your controller method, like so:
+Extend `BaseService<Entity, CreateModel, UpdateModel, Info>` and pass the TypeORM
+repository, a query alias, and options to `super()`:
 
 ```typescript
-import {
-  FetchSpecification,
-  ProcessFetchSpecification,
-} from 'nestjs-base-service';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { BaseService } from 'nestjs-base-service';
 
-@Controller(`/api/v1/some-model`)
-@ApiTags(someModelResource.className)
+@Injectable()
+export class SomeModelsService extends BaseService<
+  SomeModel,
+  CreateSomeModelDto,
+  UpdateSomeModelDto,
+  AppInfoDTO
+> {
+  constructor(@InjectRepository(SomeModel) repository: Repository<SomeModel>) {
+    super(repository, 'someModel', { idProperty: 'id' });
+  }
+}
+```
+
+- `Entity` — the TypeORM entity.
+- `CreateModel` / `UpdateModel` — the DTOs accepted by `create()` / `update()`.
+- `Info` — arbitrary per-request metadata threaded through every method (see
+  `InfoDTO`), e.g. the authenticated user.
+
+### 2. Parse the request with `ProcessFetchSpecification`
+
+The `@ProcessFetchSpecification()` parameter decorator turns the request query
+into a `FetchSpecification`. Optionally pass a whitelist of allowed filter keys —
+unknown filter keys then raise an error.
+
+```typescript
+import { FetchSpecification, ProcessFetchSpecification } from 'nestjs-base-service';
+
+@Controller('/api/v1/some-model')
 export class SomeModelController {
   constructor(public readonly someModelsService: SomeModelsService) {}
 
   @Get()
   async findAll(
-    @ProcessFetchSpecification(['status'])
-      fetchSpecification: FetchSpecification,
-  ): Promise<SomeModel> {
-    const results = await this.someModelsService.findAllPaginated(
-      fetchSpecification,
-    );
-    return this.someModelsService.serialize(results.data, results.metadata);
+    @ProcessFetchSpecification(['status']) // whitelist of filterable keys (recommended)
+    fetchSpecification: FetchSpecification,
+  ) {
+    const [data, totalItems] = await this.someModelsService.findAll(fetchSpecification);
+    return this.someModelsService.serialize(data, { totalItems });
   }
 }
 ```
 
-- Ensure your service class extends the included `BaseService` class.
-- On your controller decorator argument, optionally pass a whitelist of filtering parameters (recommended).
+### Query parameter conventions
+
+`ProcessFetchSpecification` reads these query parameters:
+
+| Parameter           | Example                          | Effect                                                   |
+| ------------------- | -------------------------------- | -------------------------------------------------------- |
+| `page[number]`      | `?page[number]=2`                | Page number (default `1`).                               |
+| `page[size]`        | `?page[size]=50`                 | Items per page (default `25`).                           |
+| `disablePagination` | `?disablePagination=true`        | Return all matching rows (no `LIMIT`/`OFFSET`).          |
+| `sort`              | `?sort=name,-createdAt`          | Sort columns; prefix `-` for `DESC` (`+`/none = `ASC`).  |
+| `fields`            | `?fields=id,name`                | Sparse fieldset — only these columns are `SELECT`ed.     |
+| `omitFields`        | `?omitFields=secret`             | Columns stripped from the result objects after querying. |
+| `include`           | `?include=author,author.profile` | `LEFT JOIN` relations (dot-notation for nested).         |
+| `filter[key]`       | `?filter[status]=active,pending` | Comma-separated values, applied as `key IN (...)`.       |
+
+> Filter values are always parsed into arrays and applied as parameterised `IN`
+> clauses. Pass `allowedFilters` to the decorator to reject unknown keys.
+
+### Service API
+
+| Method                                  | Returns                  | Notes                                                                                                 |
+| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `findAll(fetchSpec?, info?)`            | `[entities, totalCount]` | Applies the full fetch specification.                                                                 |
+| `findAllRaw(fetchSpec?, info?)`         | `[rawRows, count]`       | Uses `getRawMany()`; `count` is the page length — see the JSDoc caveats.                              |
+| `getById(id, fetchSpec?, info?)`        | `entity`                 | Applies `fields`/`omitFields`/`include`; throws `NotFoundException` if absent.                        |
+| `create(createModel, info?)`            | `entity`                 | Runs validate + after-create hooks.                                                                   |
+| `update(id, updateModel, info?)`        | `entity`                 | Throws `NotFoundException` if absent; runs before/after hooks.                                        |
+| `remove(id, info?)`                     | `void`                   | `NotFoundException` if absent, `ForbiddenException` if `canBeRemoved` is false.                       |
+| `removeMany(idList, info?)`             | `void`                   | Bulk delete by id list.                                                                               |
+| `paginate(options)`                     | `Pagination<Entity>`     | Thin wrapper over [`nestjs-typeorm-paginate`](https://www.npmjs.com/package/nestjs-typeorm-paginate). |
+| `serialize(data, meta?, includeNames?)` | `JsonApiDocument`        | JSON:API serialization (see below).                                                                   |
+
+### Extension hooks
+
+All hooks are `async` and overridable; the base implementations are no-ops (or
+return their input). Override only what you need.
+
+- **Query shaping:** `extendFindAllQuery`, `extendGetByIdQuery`, `setFilters`,
+  `setFiltersUpdate`, `setFiltersDelete`
+- **Result shaping:** `extendFindAllResults`, `extendGetByIdResult`,
+  `extendCreateResult`, `extendUpdateResult`
+- **Data mapping:** `setDataCreate`, `setDataUpdate`
+- **Validation:** `validateBeforeCreate`, `validateBeforeUpdate`
+- **Side effects:** `actionAfterCreate`, `actionBeforeUpdate`, `actionAfterUpdate`
+- **Authorization:** `canBeRemoved`
+
+### Service options
+
+```typescript
+super(repository, 'someModel', {
+  idProperty: 'id', // primary key property name (default: 'id')
+  logging: { muteAll: true }, // silence the per-service logger
+  serializer: { type: 'some-models' }, // JSON:API resource `type` override
+});
+```
+
+### JSON:API serialization
+
+`BaseService.serialize()` turns one or more entities into a JSON:API document
+(powered by [`jsona`](https://www.npmjs.com/package/jsona)). The resource `type`,
+`id`, attributes and relationships are derived from the entity's TypeORM
+metadata:
+
+```typescript
+// single entity
+service.serialize(entity);
+
+// collection with a top-level meta member
+service.serialize(entities, { totalItems });
+
+// embed related resources in `included` (relation names, dot-notation for nested)
+service.serialize(entity, undefined, ['author', 'author.profile']);
+```
+
+The resource `type` defaults to the entity's TypeORM metadata name; override it
+with the `serializer.type` service option.
+
+### Validation
+
+DTO validation is delegated to the host application's `class-validator` setup
+(declared as an optional peer dependency — class-validator must be a single
+shared instance with your app). Run it inside the `validateBeforeCreate` /
+`validateBeforeUpdate` hooks.
+
+## Roadmap
+
+- [x] Add tests
+- [x] Add support for pagination
+- [x] Add support for serialization
+- [ ] Add tutorial
+- [ ] Implement transaction support
+- [ ] Implement opinionated batching
+- [ ] Add support for validation (via plugin?)
+- [ ] Add support for auditing (via plugin?)
+- [ ] Add support for batching of operations
+
+## License
+
+(C) Copyright [Vizzuality](https://vizzuality.com) 2020-2026.
+
+Distributed under the [MIT](LICENSE) license.

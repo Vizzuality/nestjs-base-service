@@ -31,7 +31,7 @@ export class FetchUtils<T> {
       pageSize: DEFAULT_PAGINATION.pageSize,
       disablePagination: DEFAULT_PAGINATION.disablePagination,
       sort: undefined,
-    }
+    },
   ) {
     const queryWithIncludedEntities = this.addIncludedEntities(query, aliasTable, { include });
     const queryWithSparseFieldsets = this.addFields(queryWithIncludedEntities, aliasTable, {
@@ -64,7 +64,7 @@ export class FetchUtils<T> {
       omitFields: undefined,
       include: undefined,
       filter: undefined,
-    }
+    },
   ) {
     return this.processFetchSpecification(query, aliasTable, {
       fields,
@@ -82,7 +82,7 @@ export class FetchUtils<T> {
     aliasTable: string,
     { fields = undefined }: Pick<FetchSpecification, 'fields'> = {
       fields: undefined,
-    }
+    },
   ) {
     /**
      * Select fields as per fetch specification: if any fields are listed in the
@@ -113,7 +113,7 @@ export class FetchUtils<T> {
     aliasTable: string,
     { include = undefined }: Pick<FetchSpecification, 'include'> = {
       include: undefined,
-    }
+    },
   ) {
     /**
      * Select entities to be included as per fetch specification.
@@ -153,7 +153,7 @@ export class FetchUtils<T> {
     aliasTable: string,
     { sort = undefined }: Pick<FetchSpecification, 'sort'> = {
       sort: undefined,
-    }
+    },
   ) {
     /**
      * Apply sorting
@@ -181,7 +181,7 @@ export class FetchUtils<T> {
     }: Pick<FetchSpecification, 'pageSize' | 'pageNumber'> = {
       pageSize: DEFAULT_PAGINATION.pageSize,
       pageNumber: DEFAULT_PAGINATION.pageNumber,
-    }
+    },
   ) {
     /**
      * Apply pagination

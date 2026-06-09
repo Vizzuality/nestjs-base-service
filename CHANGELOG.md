@@ -5,11 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0
+
+2026-06-09
+
+Modernization release. **Breaking** — drops support for old Node/NestJS and ships
+as an ESM + CommonJS dual package.
+
+### Breaking changes
+
+- **Node.js >= 20** required (was `>=14.17`).
+- **Peer dependencies bumped:** `@nestjs/common` `^11`, `typeorm` `^0.3.20`
+  (was `^9.2.1` / `^0.3.11`).
+- **Dual ESM + CJS build** via `tsup`, with an `exports` map. `main` now points
+  to `./dist/index.cjs`; ESM consumers resolve `./dist/index.js`.
+- **Removed unused runtime dependencies:** `express` and `lodash` (the lodash
+  helpers used internally were replaced with dependency-free equivalents).
+- **`class-validator` / `class-transformer` are now declared as optional peer
+  dependencies** instead of bundled runtime deps. They were never imported by
+  the library, and class-validator must share a single instance with the host
+  app — bundling a copy silently breaks validation.
+
+### Added
+
+- **`BaseService.serialize(data, meta?, includeNames?)`** — serializes entities
+  into a JSON:API document (resource `type`/`id`, attributes, relationships and
+  `included`), powered by [`jsona`](https://www.npmjs.com/package/jsona). Resource
+  `type` is derived from TypeORM entity metadata and can be overridden via the new
+  `serializer.type` service option. (Ticks the long-standing "serialization"
+  roadmap item.)
+
+### Tooling
+
+- Package manager: **pnpm** (was Yarn).
+- Tests: **Vitest** (was Jest); `BaseService`, `FetchUtils`, the serializer and
+  the internal utilities now have test coverage (>90%).
+- Lint/format: **oxlint + oxfmt** (was ESLint + Prettier).
+- TypeScript bumped to `5.9.x`; build target Node 20.
+- CI refreshed (pnpm, Node 20/22, updated GitHub Actions); added a tag-gated npm
+  release workflow.
+
+### Notes
+
+- No breaking changes to the existing public API (`BaseService`,
+  `ProcessFetchSpecification`, `FetchUtils`, `FetchSpecification`, defaults) or
+  its behavior; `serialize()` is purely additive.
+
 ## 0.11.0
 
 2023-03-30
 
-- Make `_processBaseFilter` and `_processBaseFilter` methods of `BaseService` `protected` to allow them to be overriden.  
+- Make `_processBaseFilter` and `_processBaseFilter` methods of `BaseService` `protected` to allow them to be overriden.
 
 ## 0.10.0
 
@@ -54,7 +100,7 @@ throughout any of these lifecycle hooks.
 
 - Update `nodejs` requirement to `>=14.17` instead of `~14.17`
 
-## 0.8.0 
+## 0.8.0
 
 2021-11-04
 
@@ -73,7 +119,6 @@ throughout any of these lifecycle hooks.
   - Equivalent functionality has been moved into the `ProcessFetchSpecification` request parameter decorator.
 - `ProcessFetchSpecification` decorator now accepts an optional whitelist of filtering parameters it allows.
 - `BaseService` now has a working basic built-in filtering functionality.
-
 
 ## 0.6.1
 
@@ -100,7 +145,6 @@ throughout any of these lifecycle hooks.
 - [BREAKING CHANGE] `idProperty` is now part of the service `options` provided
   to the constructor.
 
-
 ## 0.5.2
 
 2021-04-20
@@ -113,7 +157,6 @@ throughout any of these lifecycle hooks.
   directly to database columns it can be used as a sort of DTO, and the hooks
   added in this release allow to reshape/extend data after it has been fetched
   from db.
-
 
 ## [0.5.1]
 
@@ -132,10 +175,10 @@ throughout any of these lifecycle hooks.
 - Some verbose logging used during development of the initial FetchSpecification
   implementation has been removed.
 
-
 ## [0.5.0]
 
 2021-03-23
+
 ### Added
 
 - Support for processing of meaningful parts of `FetchSpecification` (included
@@ -151,7 +194,6 @@ throughout any of these lifecycle hooks.
   but to add joins and other conditions to the query being assembled.
 - Stricter typing where applicable.
 
-
 ## [0.4.6]
 
 2021-03-22
@@ -161,7 +203,6 @@ throughout any of these lifecycle hooks.
 - Support for `filter` query params, e.g.
   `filter[keyA]=val1,val2&filter[keyB]=val3,val4,val5`.
 
-
 ## [0.4.5]
 
 2021-03-18
@@ -170,6 +211,7 @@ throughout any of these lifecycle hooks.
 
 - Add support for a variant of `findAll()` that returns raw results (to be used
   with a grain of salt and awareness of possible pitfalls).
+
 ### Changed
 
 - Refactor parts of `findAll()` now shared with `findAllRaw()`.
@@ -188,7 +230,6 @@ throughout any of these lifecycle hooks.
   should be properly enforced one level downstream, but for the moment the
   current guards should be enough.
 
-
 ## [0.4.3]
 
 2021-03-10
@@ -206,7 +247,6 @@ throughout any of these lifecycle hooks.
 - More `"`-wrapping of entity and prop names introduced erroneously in previous
   release was undone. There are no instances left of this bug in the current
   code.
-
 
 ## [0.4.2]
 
@@ -235,7 +275,6 @@ throughout any of these lifecycle hooks.
   iterating it faster there. After some refactoring, we can now include the
   most recent middleware here.
 - Add support for bypassing pagination (`?noPagination=true`).
-
 
 ## [0.4.0]
 
@@ -268,7 +307,6 @@ throughout any of these lifecycle hooks.
   static function `PaginationUtils.pagination()`: this is now done via
   `FetchUtils.processFetchSpecification()`.
 
-
 ## [0.2.2]
 
 2021-02-25
@@ -277,16 +315,15 @@ throughout any of these lifecycle hooks.
 
 - Add support for searching by id using arbitrary id column names.
 
-
 ## [0.2.1]
 
 2021-02-08
+
 ### Added
 
 - Add initial support for pagination, for plural `GET` requests.
 - Add scaffolding for other fetch specification traits: `includes` (resource
   inclusion), `fields` (sparse fieldsets), `sort` (sorting by specific fields).
-
 
 ## [0.2.0]
 
@@ -297,7 +334,6 @@ throughout any of these lifecycle hooks.
 - [BREAKING CHANGE] `GenericService` has been renamed to `BaseService`, aligning
   the class name to the package name, besides arguably better matching the
   intent of this service.
-
 
 ## [0.1.0]
 

@@ -4,9 +4,17 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
+import { Jsona } from 'jsona';
+
 import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
-import { omit, pick, castArray } from 'lodash';
+import { omit, pick } from './utils/object.utils';
+import { EntityPropertiesMapper } from './serialization/entity-properties-mapper';
+
+/** A serialized JSON:API document, as produced by `BaseService.serialize()`. */
+export type JsonApiDocument = ReturnType<Jsona['serialize']> & {
+  meta?: Record<string, unknown>;
+};
 
 class NoOpLogger implements LoggerService {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -21,7 +29,16 @@ class NoOpLogger implements LoggerService {
   verbose(message: unknown) {}
 }
 
-export type BaseServiceOptions = { idProperty?: string; logging?: { muteAll?: boolean } };
+export type BaseServiceOptions = {
+  idProperty?: string;
+  logging?: { muteAll?: boolean };
+  /**
+   * Options for `serialize()`. `type` sets the JSON:API resource `type` for
+   * this service's root entity; when omitted it is resolved from the entity's
+   * TypeORM metadata name, falling back to the service alias.
+   */
+  serializer?: { type?: string };
+};
 /**
  * Base service class for NestJS projects.
  *
@@ -108,7 +125,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    */
   _processOmitFields(
     { omitFields }: Pick<FetchSpecification, 'omitFields'>,
-    entities: any[]
+    entities: any[],
   ): any[] {
     return omitFields?.length ? entities.map((e) => omit(e, omitFields)) : entities;
   }
@@ -116,16 +133,20 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   // ↓↓↓ findAll
   async _prepareFindAllQuery(
     fetchSpecification: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<SelectQueryBuilder<Entity>> {
     const query = this.repository.createQueryBuilder(this.alias);
     const _i = { ...info, fetchSpecification };
     const processedQuery = await this.extendFindAllQuery(query, fetchSpecification, info);
-    const queryWithFilters = await this.setFilters(processedQuery, fetchSpecification?.filter, info);
+    const queryWithFilters = await this.setFilters(
+      processedQuery,
+      fetchSpecification?.filter,
+      info,
+    );
     const queryWithFetchSpecificationApplied = FetchUtils.processFetchSpecification<Entity>(
       queryWithFilters,
       this.alias,
-      fetchSpecification
+      fetchSpecification,
     );
     this.logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     return queryWithFetchSpecificationApplied;
@@ -141,14 +162,14 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async extendFindAllQuery(
     query: SelectQueryBuilder<Entity>,
     fetchSpecification: FetchSpecification,
-    info: Info
+    info: Info,
   ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
   async findAll(
     fetchSpecification?: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<[Partial<Entity>[], number]> {
     this.logger.debug(`Finding all ${this.alias}`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
@@ -156,11 +177,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     const extendedEntitiesAndCount = await this.extendFindAllResults(
       entitiesAndCount,
       fetchSpecification,
-      info
+      info,
     );
     const entities = this._processOmitFields(
       { omitFields: fetchSpecification?.omitFields },
-      extendedEntitiesAndCount[0]
+      extendedEntitiesAndCount[0],
     );
     return [entities, extendedEntitiesAndCount[1]];
   }
@@ -172,7 +193,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    */
   async findAllRaw(
     fetchSpecification?: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<[Partial<Entity>[], number]> {
     this.logger.debug(`Finding all ${this.alias} as raw results`);
     const query = await this._prepareFindAllQuery(fetchSpecification, info);
@@ -180,11 +201,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     const extendedEntitiesAndCount = await this.extendFindAllResults(
       entitiesAndCount,
       fetchSpecification,
-      info
+      info,
     );
     const entities = this._processOmitFields(
       { omitFields: fetchSpecification?.omitFields },
-      extendedEntitiesAndCount[0]
+      extendedEntitiesAndCount[0],
     );
     return [entities, extendedEntitiesAndCount[1]];
   }
@@ -201,7 +222,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async extendFindAllResults(
     entitiesAndCount: [any[], number],
     fetchSpecification?: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<[any[], number]> {
     return entitiesAndCount;
   }
@@ -209,7 +230,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async setFilters(
     query: SelectQueryBuilder<Entity>,
     filters?: Record<string, any>,
-    info?: Info
+    info?: Info,
   ): Promise<SelectQueryBuilder<Entity>> {
     return this._processBaseFilters(query, filters, Object.keys(filters || {}));
   }
@@ -217,7 +238,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   protected _processBaseFilters<Filters>(
     query: SelectQueryBuilder<Entity>,
     filters: Filters,
-    filterKeys: any
+    filterKeys: any,
   ): SelectQueryBuilder<Entity> {
     if (filters) {
       Object.entries(filters)
@@ -230,11 +251,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
 
   protected _processBaseFilter(
     query: SelectQueryBuilder<Entity>,
-    [filterKey, filterValues]: [string, unknown]
+    [filterKey, filterValues]: [string, unknown],
   ): SelectQueryBuilder<Entity> {
     if (Array.isArray(filterValues) && filterValues.length) {
       query.andWhere(`${this.alias}.${filterKey} IN (:...${filterKey}Values)`, {
-        [`${filterKey}Values`]: castArray(filterValues),
+        [`${filterKey}Values`]: filterValues,
       });
     }
     return query;
@@ -248,6 +269,37 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   }
   // ↑↑↑ paginate
 
+  // ↓↓↓ serialize
+  /**
+   * Serialize one or more entities into a JSON:API document.
+   *
+   * The resource `type`, `id`, attributes and relationships are derived from
+   * the entity's TypeORM metadata. Pass `includeNames` (relation property
+   * names, dot-notation for nested) to embed related resources in the
+   * `included` section; pass `meta` to attach a top-level `meta` member.
+   */
+  serialize(
+    data: Partial<Entity> | Partial<Entity>[],
+    meta?: Record<string, unknown>,
+    includeNames?: string[],
+  ): JsonApiDocument {
+    const fallbackType =
+      this.options.serializer?.type ?? this.repository.metadata?.name ?? this.alias;
+    const formatter = new Jsona({
+      modelPropertiesMapper: new EntityPropertiesMapper(
+        this.repository.manager?.connection,
+        fallbackType,
+        this.options.idProperty ?? 'id',
+      ),
+    });
+    const document = formatter.serialize({
+      stuff: data as Parameters<Jsona['serialize']>[0]['stuff'],
+      includeNames,
+    });
+    return meta ? { ...document, meta } : document;
+  }
+  // ↑↑↑ serialize
+
   // ↓↓↓ getById
   /**
    * Apply any query transformations as needed, for getById queries.
@@ -259,7 +311,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async extendGetByIdQuery(
     query: SelectQueryBuilder<Entity>,
     fetchSpecification?: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
@@ -272,7 +324,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     const queryWithFetchSpecificationApplied = FetchUtils.processSingleEntityFetchSpecification(
       extendedQuery,
       this.alias,
-      pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter'])
+      pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter']),
     );
     queryWithFetchSpecificationApplied
       .andWhere(`${this.alias}.${this.options.idProperty} = :id`)
@@ -302,7 +354,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   async extendGetByIdResult(
     entity: Entity,
     fetchSpecification?: FetchSpecification,
-    info?: Info
+    info?: Info,
   ): Promise<Entity> {
     return entity;
   }
@@ -342,7 +394,8 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
         .save(model)
         .then(async (result) => {
           const extendedResult = await this.extendCreateResult(result, createModel, info);
-          if (this.actionAfterCreate) await this.actionAfterCreate(extendedResult, createModel, info);
+          if (this.actionAfterCreate)
+            await this.actionAfterCreate(extendedResult, createModel, info);
           resolve(extendedResult);
         })
         .catch((e) => reject(e));
@@ -355,7 +408,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return;
   }
 
-  async setFiltersUpdate(query: SelectQueryBuilder<Entity>, info?: Info): Promise<SelectQueryBuilder<Entity>> {
+  async setFiltersUpdate(
+    query: SelectQueryBuilder<Entity>,
+    info?: Info,
+  ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
@@ -398,7 +454,8 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
         .save(model)
         .then(async (result) => {
           const extendedResult = await this.extendUpdateResult(result, updateModel, info);
-          if (this.actionAfterUpdate) await this.actionAfterUpdate(extendedResult, updateModel, info);
+          if (this.actionAfterUpdate)
+            await this.actionAfterUpdate(extendedResult, updateModel, info);
           resolve(extendedResult);
         })
         .catch((e) => reject(e));
@@ -407,7 +464,10 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
   // ↑↑↑ update
 
   // ↓↓↓ delete
-  async setFiltersDelete(query: SelectQueryBuilder<Entity>, info?: Info): Promise<SelectQueryBuilder<Entity>> {
+  async setFiltersDelete(
+    query: SelectQueryBuilder<Entity>,
+    info?: Info,
+  ): Promise<SelectQueryBuilder<Entity>> {
     return query;
   }
 
