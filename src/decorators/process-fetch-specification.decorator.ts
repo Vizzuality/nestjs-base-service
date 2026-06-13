@@ -121,7 +121,7 @@ export const ProcessFetchSpecification = createParamDecorator(
         }
       });
 
-      if (result.length > 0) {
+      if (Object.keys(result).length > 0) {
         request.fetchSpecification.filter = result;
       }
     }

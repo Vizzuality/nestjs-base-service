@@ -129,7 +129,7 @@ export class FetchUtils<T> {
               completed += '.';
             }
             completed += element;
-            const alias = completed.replace('.', '_');
+            const alias = completed.replaceAll('.', '_');
             if (include.indexOf(completed) === -1 || completed === inc) {
               if (index === 0) {
                 query.leftJoinAndSelect(`${aliasTable}.${element}`, alias);

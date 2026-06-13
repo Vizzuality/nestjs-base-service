@@ -16,6 +16,7 @@ to customise every step.
 - `@nestjs/common` >= 11 (peer dependency)
 - `typeorm` >= 0.3.20 (peer dependency)
 - `class-validator` / `class-transformer` (optional peers — only if you validate DTOs)
+- `jsona` (optional peer — only if you use `serialize()`)
 
 The package ships both ESM and CommonJS builds with full type definitions, so it
 works in `import` and `require` consumers alike.
@@ -77,7 +78,7 @@ export class SomeModelController {
     fetchSpecification: FetchSpecification,
   ) {
     const [data, totalItems] = await this.someModelsService.findAll(fetchSpecification);
-    return this.someModelsService.serialize(data, { totalItems });
+    return await this.someModelsService.serialize(data, { totalItems });
   }
 }
 ```
@@ -102,17 +103,17 @@ export class SomeModelController {
 
 ### Service API
 
-| Method                                  | Returns                  | Notes                                                                                                 |
-| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `findAll(fetchSpec?, info?)`            | `[entities, totalCount]` | Applies the full fetch specification.                                                                 |
-| `findAllRaw(fetchSpec?, info?)`         | `[rawRows, count]`       | Uses `getRawMany()`; `count` is the page length — see the JSDoc caveats.                              |
-| `getById(id, fetchSpec?, info?)`        | `entity`                 | Applies `fields`/`omitFields`/`include`; throws `NotFoundException` if absent.                        |
-| `create(createModel, info?)`            | `entity`                 | Runs validate + after-create hooks.                                                                   |
-| `update(id, updateModel, info?)`        | `entity`                 | Throws `NotFoundException` if absent; runs before/after hooks.                                        |
-| `remove(id, info?)`                     | `void`                   | `NotFoundException` if absent, `ForbiddenException` if `canBeRemoved` is false.                       |
-| `removeMany(idList, info?)`             | `void`                   | Bulk delete by id list.                                                                               |
-| `paginate(options)`                     | `Pagination<Entity>`     | Thin wrapper over [`nestjs-typeorm-paginate`](https://www.npmjs.com/package/nestjs-typeorm-paginate). |
-| `serialize(data, meta?, includeNames?)` | `JsonApiDocument`        | JSON:API serialization (see below).                                                                   |
+| Method                                  | Returns                    | Notes                                                                                                 |
+| --------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `findAll(fetchSpec?, info?)`            | `[entities, totalCount]`   | Applies the full fetch specification.                                                                 |
+| `findAllRaw(fetchSpec?, info?)`         | `[rawRows, count]`         | Uses `getRawMany()`; `count` is the total matching rows (via `getCount()`) — see the JSDoc caveats.   |
+| `getById(id, fetchSpec?, info?)`        | `entity`                   | Applies `fields`/`omitFields`/`include`; throws `NotFoundException` if absent.                        |
+| `create(createModel, info?)`            | `entity`                   | Runs validate + after-create hooks.                                                                   |
+| `update(id, updateModel, info?)`        | `entity`                   | Throws `NotFoundException` if absent; runs before/after hooks.                                        |
+| `remove(id, info?)`                     | `void`                     | `NotFoundException` if absent, `ForbiddenException` if `canBeRemoved` is false.                       |
+| `removeMany(idList, info?)`             | `void`                     | Bulk delete by id list.                                                                               |
+| `paginate(options)`                     | `Pagination<Entity>`       | Thin wrapper over [`nestjs-typeorm-paginate`](https://www.npmjs.com/package/nestjs-typeorm-paginate). |
+| `serialize(data, meta?, includeNames?)` | `Promise<JsonApiDocument>` | JSON:API serialization (see below). Requires the optional `jsona` peer dep.                           |
 
 ### Extension hooks
 
@@ -140,24 +141,30 @@ super(repository, 'someModel', {
 
 ### JSON:API serialization
 
-`BaseService.serialize()` turns one or more entities into a JSON:API document
-(powered by [`jsona`](https://www.npmjs.com/package/jsona)). The resource `type`,
-`id`, attributes and relationships are derived from the entity's TypeORM
-metadata:
+`BaseService.serialize()` turns one or more entities into a JSON:API document.
+The resource `type`, `id`, attributes and relationships are derived from the
+entity's TypeORM metadata.
+
+It is powered by [`jsona`](https://www.npmjs.com/package/jsona), which is an
+**optional peer dependency** loaded lazily — install it only if you use this
+method (`pnpm add jsona`). `serialize()` is `async`:
 
 ```typescript
 // single entity
-service.serialize(entity);
+await service.serialize(entity);
 
 // collection with a top-level meta member
-service.serialize(entities, { totalItems });
+await service.serialize(entities, { totalItems });
 
 // embed related resources in `included` (relation names, dot-notation for nested)
-service.serialize(entity, undefined, ['author', 'author.profile']);
+await service.serialize(entity, undefined, ['author', 'author.profile']);
 ```
 
 The resource `type` defaults to the entity's TypeORM metadata name; override it
 with the `serializer.type` service option.
+
+> Already have your own JSON:API serializer? Skip `serialize()` entirely and
+> don't install `jsona` — the rest of the library has no dependency on it.
 
 ### Validation
 

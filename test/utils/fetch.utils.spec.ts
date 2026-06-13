@@ -85,18 +85,15 @@ describe('FetchUtils', () => {
       expect(qb.leftJoinAndSelect).toHaveBeenNthCalledWith(2, 'author.profile', 'author_profile');
     });
 
-    it('handles three-level nesting', () => {
+    it('handles three-level nesting with fully underscored aliases', () => {
       const qb = makeQueryBuilder();
       FetchUtils.addIncludedEntities(qb, 'item', { include: ['author.profile.avatar'] });
       expect(qb.leftJoinAndSelect).toHaveBeenNthCalledWith(1, 'item.author', 'author');
       expect(qb.leftJoinAndSelect).toHaveBeenNthCalledWith(2, 'author.profile', 'author_profile');
-      // NOTE: alias derivation uses `String.replace('.', '_')`, which replaces
-      // only the FIRST dot — so beyond two levels the alias keeps later dots.
-      // This is pre-existing behavior, asserted here as-is (not endorsed).
       expect(qb.leftJoinAndSelect).toHaveBeenNthCalledWith(
         3,
         'author_profile.avatar',
-        'author_profile.avatar',
+        'author_profile_avatar',
       );
     });
 

@@ -28,12 +28,28 @@ as an ESM + CommonJS dual package.
 
 ### Added
 
-- **`BaseService.serialize(data, meta?, includeNames?)`** — serializes entities
-  into a JSON:API document (resource `type`/`id`, attributes, relationships and
-  `included`), powered by [`jsona`](https://www.npmjs.com/package/jsona). Resource
-  `type` is derived from TypeORM entity metadata and can be overridden via the new
-  `serializer.type` service option. (Ticks the long-standing "serialization"
-  roadmap item.)
+- **`async BaseService.serialize(data, meta?, includeNames?)`** — serializes
+  entities into a JSON:API document (resource `type`/`id`, attributes,
+  relationships and `included`), powered by
+  [`jsona`](https://www.npmjs.com/package/jsona). Resource `type` is derived from
+  TypeORM entity metadata and can be overridden via the new `serializer.type`
+  service option. (Ticks the long-standing "serialization" roadmap item.)
+  - **`jsona` is an _optional_ peer dependency**, imported lazily inside
+    `serialize()` — projects that do their own serialization need not install it.
+    `serialize()` is `async` and throws a clear error if `jsona` is missing.
+
+### Fixed
+
+- `remove()` / `removeMany()` now honour the configured `idProperty` instead of
+  a hardcoded `id` column (deletes were broken for entities with a custom primary
+  key).
+- `findAllRaw()` now reports the **total** matching row count (via `getCount()`)
+  rather than the current page's length.
+- Nested `include` aliases beyond two levels are now fully underscored
+  (`author.profile.avatar` → `author_profile_avatar`); previously only the first
+  dot was replaced.
+- `ProcessFetchSpecification` now correctly re-applies the whitelisted filter
+  subset (the previous `result.length` check on an object was always falsy).
 
 ### Tooling
 

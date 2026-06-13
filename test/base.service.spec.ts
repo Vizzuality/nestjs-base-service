@@ -35,6 +35,7 @@ function makeQueryBuilder(terminals: Partial<Record<string, unknown>> = {}) {
   qb.getQueryAndParameters = vi.fn(() => ['SQL', []]);
   qb.getManyAndCount = vi.fn(async () => terminals.getManyAndCount ?? [[], 0]);
   qb.getRawMany = vi.fn(async () => terminals.getRawMany ?? []);
+  qb.getCount = vi.fn(async () => terminals.getCount ?? 0);
   qb.getOne = vi.fn(async () => terminals.getOne ?? null);
   qb.getMany = vi.fn(async () => terminals.getMany ?? []);
   return qb;
@@ -92,12 +93,13 @@ describe('BaseService', () => {
   });
 
   describe('findAllRaw', () => {
-    it('returns raw rows and uses their length as the count', async () => {
+    it('returns raw rows with the total count from getCount (ignoring pagination)', async () => {
       const rows = [{ item_id: '1' }, { item_id: '2' }];
       (qb.getRawMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce(rows);
+      (qb.getCount as ReturnType<typeof vi.fn>).mockResolvedValueOnce(7);
       const [entities, count] = await service.findAllRaw();
       expect(entities).toStrictEqual(rows);
-      expect(count).toBe(2);
+      expect(count).toBe(7); // total matching rows, not the page length
     });
   });
 
@@ -203,6 +205,22 @@ describe('BaseService', () => {
       await expect(service.remove('1')).rejects.toBeInstanceOf(ForbiddenException);
       expect(repository.remove).not.toHaveBeenCalled();
     });
+
+    it('queries by the configured idProperty (not a hardcoded "id")', async () => {
+      const uuidService = new (class extends BaseService<
+        Item,
+        Partial<Item>,
+        Partial<Item>,
+        unknown
+      > {
+        constructor() {
+          super(repository, 'item', { idProperty: 'uuid', logging: { muteAll: true } });
+        }
+      })();
+      (qb.getOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sample);
+      await uuidService.remove('abc');
+      expect(qb.andWhere).toHaveBeenCalledWith('item.uuid = :id');
+    });
   });
 
   describe('removeMany', () => {
@@ -217,6 +235,22 @@ describe('BaseService', () => {
       (qb.getMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
       await service.removeMany(['x']);
       expect(repository.remove).not.toHaveBeenCalled();
+    });
+
+    it('queries by the configured idProperty (not a hardcoded "id")', async () => {
+      const uuidService = new (class extends BaseService<
+        Item,
+        Partial<Item>,
+        Partial<Item>,
+        unknown
+      > {
+        constructor() {
+          super(repository, 'item', { idProperty: 'uuid', logging: { muteAll: true } });
+        }
+      })();
+      (qb.getMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([sample]);
+      await uuidService.removeMany(['a', 'b']);
+      expect(qb.where).toHaveBeenCalledWith('item.uuid IN (:...idList)', { idList: ['a', 'b'] });
     });
   });
 });

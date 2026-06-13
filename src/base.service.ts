@@ -4,17 +4,27 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
-import { Jsona } from 'jsona';
-
 import { FetchSpecification } from './types/fetch-specification.interface';
 import { FetchUtils } from './utils/fetch.utils';
 import { omit, pick } from './utils/object.utils';
 import { EntityPropertiesMapper } from './serialization/entity-properties-mapper';
 
-/** A serialized JSON:API document, as produced by `BaseService.serialize()`. */
-export type JsonApiDocument = ReturnType<Jsona['serialize']> & {
+/** A single JSON:API resource object. */
+export interface JsonApiResource {
+  type: string;
+  id?: string | number;
+  attributes?: Record<string, unknown>;
+  relationships?: Record<string, unknown>;
+  links?: Record<string, unknown>;
   meta?: Record<string, unknown>;
-};
+}
+
+/** A serialized JSON:API document, as produced by `BaseService.serialize()`. */
+export interface JsonApiDocument {
+  data?: JsonApiResource | JsonApiResource[];
+  included?: JsonApiResource[];
+  meta?: Record<string, unknown>;
+}
 
 class NoOpLogger implements LoggerService {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -115,8 +125,12 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * net of unit tests and property-based tests.
    */
   async _getRawManyAndCount(query: SelectQueryBuilder<Entity>): Promise<[any[], number]> {
-    const results = await query.getRawMany();
-    return [results, results.length];
+    // `getCount()` ignores the query's own LIMIT/OFFSET, so it reflects the
+    // total number of matching rows rather than the size of the current page.
+    // Note the caveat above: for queries using aggregation this total may not
+    // be meaningful.
+    const [results, total] = await Promise.all([query.getRawMany(), query.getCount()]);
+    return [results, total];
   }
 
   /**
@@ -277,25 +291,35 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
    * the entity's TypeORM metadata. Pass `includeNames` (relation property
    * names, dot-notation for nested) to embed related resources in the
    * `included` section; pass `meta` to attach a top-level `meta` member.
+   *
+   * Requires the optional peer dependency `jsona`, which is imported lazily so
+   * that consumers who do their own serialization need not install it.
    */
-  serialize(
+  async serialize(
     data: Partial<Entity> | Partial<Entity>[],
     meta?: Record<string, unknown>,
     includeNames?: string[],
-  ): JsonApiDocument {
+  ): Promise<JsonApiDocument> {
+    const jsonaModule = await import('jsona').catch(() => {
+      throw new Error(
+        "BaseService.serialize() requires the optional peer dependency 'jsona'. Install it with `pnpm add jsona`.",
+      );
+    });
     const fallbackType =
       this.options.serializer?.type ?? this.repository.metadata?.name ?? this.alias;
-    const formatter = new Jsona({
+    const formatter = new jsonaModule.Jsona({
+      // EntityPropertiesMapper structurally implements jsona's
+      // IModelPropertiesMapper without importing jsona (see its docs).
       modelPropertiesMapper: new EntityPropertiesMapper(
         this.repository.manager?.connection,
         fallbackType,
         this.options.idProperty ?? 'id',
-      ),
+      ) as never,
     });
     const document = formatter.serialize({
-      stuff: data as Parameters<Jsona['serialize']>[0]['stuff'],
+      stuff: data as never,
       includeNames,
-    });
+    }) as unknown as JsonApiDocument;
     return meta ? { ...document, meta } : document;
   }
   // ↑↑↑ serialize
@@ -479,7 +503,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     this.logger.debug(`Removing a ${this.alias}`);
     let query = this.repository.createQueryBuilder(this.alias);
     query = await this.setFiltersDelete(query, info);
-    query.andWhere(`${this.alias}.id = :id`).setParameter('id', id);
+    query.andWhere(`${this.alias}.${this.options.idProperty} = :id`).setParameter('id', id);
     const model = await query.getOne();
     if (!model) {
       throw new NotFoundException(`${this.alias} not found.`);
@@ -495,7 +519,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     this.logger.debug(`Removing multiple ${this.alias}`);
     const query = this.repository
       .createQueryBuilder(this.alias)
-      .where(`${this.alias}.id IN (:...idList)`, { idList });
+      .where(`${this.alias}.${this.options.idProperty} IN (:...idList)`, { idList });
     const foundRecords = await query.getMany();
     if (foundRecords && foundRecords.length) {
       await this.repository.remove(foundRecords);

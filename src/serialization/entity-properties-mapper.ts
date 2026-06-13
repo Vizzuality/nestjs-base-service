@@ -1,24 +1,27 @@
-import { ModelPropertiesMapper } from 'jsona';
 import type { DataSource, EntityMetadata } from 'typeorm';
 
 /**
- * jsona properties mapper that resolves the JSON:API `type`, `id`, attributes
- * and relationships of TypeORM entity instances from the runtime entity
- * metadata of the active DataSource.
+ * Adapter that lets jsona serialize raw TypeORM entities. jsona's built-in
+ * mapper expects each object to carry its own `type`/`id`/`relationshipNames`;
+ * TypeORM entities don't, so this resolves the JSON:API `type`, `id`,
+ * attributes and relationships from the runtime entity metadata of the active
+ * DataSource instead.
+ *
+ * It structurally implements jsona's `IModelPropertiesMapper` without importing
+ * jsona, so the library does not depend on jsona at module-load time (jsona is
+ * an optional peer dependency, loaded lazily by `BaseService.serialize()`).
  *
  * It degrades gracefully for plain objects that no longer carry their class
  * identity (e.g. results reshaped by `omitFields`): such objects fall back to
  * the provided default type/id, with every own property treated as an
  * attribute and no relationships.
  */
-export class EntityPropertiesMapper extends ModelPropertiesMapper {
+export class EntityPropertiesMapper {
   constructor(
     private readonly dataSource: DataSource | undefined,
     private readonly fallbackType: string,
     private readonly fallbackIdProperty: string,
-  ) {
-    super();
-  }
+  ) {}
 
   private metadataFor(model: unknown): EntityMetadata | undefined {
     const ctor = (model as { constructor?: unknown } | null)?.constructor;

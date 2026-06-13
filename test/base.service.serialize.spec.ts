@@ -46,9 +46,9 @@ class BookService extends BaseService<Book, Partial<Book>, Partial<Book>, unknow
 describe('BaseService.serialize', () => {
   const service = new BookService(makeRepository(bookMeta));
 
-  it('serializes a single entity into a JSON:API resource', () => {
+  it('serializes a single entity into a JSON:API resource', async () => {
     const book = Object.assign(new Book(), { id: 'b1', title: 'Dune' });
-    const doc = service.serialize(book);
+    const doc = await service.serialize(book);
     expect(doc.data).toMatchObject({
       type: 'Book',
       id: 'b1',
@@ -60,13 +60,13 @@ describe('BaseService.serialize', () => {
     );
   });
 
-  it('emits relationships and includes related resources listed in includeNames', () => {
+  it('emits relationships and includes related resources listed in includeNames', async () => {
     const book = Object.assign(new Book(), {
       id: 'b1',
       title: 'Dune',
       author: Object.assign(new Author(), { id: 'a1', name: 'Frank' }),
     });
-    const doc = service.serialize(book, undefined, ['author']);
+    const doc = await service.serialize(book, undefined, ['author']);
 
     const data = doc.data as {
       attributes: Record<string, unknown>;
@@ -83,37 +83,37 @@ describe('BaseService.serialize', () => {
     );
   });
 
-  it('serializes an array and attaches top-level meta', () => {
+  it('serializes an array and attaches top-level meta', async () => {
     const books = [
       Object.assign(new Book(), { id: 'b1', title: 'Dune' }),
       Object.assign(new Book(), { id: 'b2', title: 'Hyperion' }),
     ];
-    const doc = service.serialize(books, { totalItems: 2 });
+    const doc = await service.serialize(books, { totalItems: 2 });
     expect(Array.isArray(doc.data)).toBe(true);
     expect(doc.data).toHaveLength(2);
     expect((doc.data as Array<{ id: string }>)[1]).toMatchObject({ type: 'Book', id: 'b2' });
     expect(doc.meta).toStrictEqual({ totalItems: 2 });
   });
 
-  it('omits meta when none is provided', () => {
-    const doc = service.serialize(Object.assign(new Book(), { id: 'b1', title: 'Dune' }));
+  it('omits meta when none is provided', async () => {
+    const doc = await service.serialize(Object.assign(new Book(), { id: 'b1', title: 'Dune' }));
     expect(doc.meta).toBeUndefined();
   });
 
-  it('falls back to the default type when entity metadata cannot be resolved', () => {
+  it('falls back to the default type when entity metadata cannot be resolved', async () => {
     // An instance whose class is not registered: getMetadata throws → fallback.
     class Unregistered {
       id!: string;
       label!: string;
     }
-    const doc = service.serialize(
+    const doc = await service.serialize(
       Object.assign(new Unregistered(), { id: 'u1', label: 'x' }) as never,
     );
     // root falls back to the repository metadata name ('Book')
     expect(doc.data).toMatchObject({ type: 'Book', id: 'u1', attributes: { label: 'x' } });
   });
 
-  it('falls back to the configured serializer type for plain objects', () => {
+  it('falls back to the configured serializer type for plain objects', async () => {
     class ThingService extends BaseService<{ id: string }, unknown, unknown, unknown> {
       constructor() {
         super({} as unknown as Repository<{ id: string }>, 'thing', {
@@ -122,7 +122,7 @@ describe('BaseService.serialize', () => {
         });
       }
     }
-    const doc = new ThingService().serialize({ id: 'p1', name: 'plain' } as never);
+    const doc = await new ThingService().serialize({ id: 'p1', name: 'plain' } as never);
     expect(doc.data).toMatchObject({
       type: 'custom-things',
       id: 'p1',
