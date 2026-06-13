@@ -57,9 +57,10 @@ as an ESM + CommonJS dual package.
 - Tests: **Vitest** (was Jest); `BaseService`, `FetchUtils`, the serializer and
   the internal utilities now have test coverage (>90%).
 - Lint/format: **oxlint + oxfmt** (was ESLint + Prettier).
+- Git hooks: **prek** (a Rust drop-in for pre-commit) via `.pre-commit-config.yaml`,
+  running oxlint + oxfmt on staged files (replaces husky + lint-staged).
 - TypeScript bumped to `5.9.x`; build target Node 20.
-- CI refreshed (pnpm, Node 20/22, updated GitHub Actions); added a tag-gated npm
-  release workflow.
+- CI refreshed (pnpm, Node 20/22, updated GitHub Actions).
 
 ### Notes
 

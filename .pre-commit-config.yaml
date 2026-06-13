@@ -1,0 +1,21 @@
+# Git hooks, managed by prek (https://github.com/j178/prek) — a fast, Rust-based
+# drop-in for pre-commit. This config is also compatible with `pre-commit`.
+#
+# One-time setup (pick one to install prek, then enable the hooks):
+#   pip install prek   # or: uv tool install prek / brew install prek
+#   prek install
+#
+# `pnpm install` also runs `prek install` automatically when prek is on PATH.
+repos:
+  - repo: local
+    hooks:
+      - id: oxlint
+        name: oxlint
+        entry: pnpm exec oxlint --fix
+        language: system
+        files: \.ts$
+      - id: oxfmt
+        name: oxfmt
+        entry: pnpm exec oxfmt
+        language: system
+        files: \.ts$

@@ -11,9 +11,6 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  HUSKY: 0 # skip git-hook installation during CI installs
-
 jobs:
   test:
     name: Lint, typecheck, build & test

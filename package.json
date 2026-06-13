@@ -41,7 +41,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "prepare": "husky",
+    "prepare": "prek install || true",
     "prepublishOnly": "pnpm build",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
@@ -57,9 +57,7 @@
     "@swc/core": "^1.15.40",
     "@types/node": "^22.15.0",
     "@vitest/coverage-v8": "^4.1.8",
-    "husky": "^9.1.7",
     "jsona": "^1.14.0",
-    "lint-staged": "^17.0.7",
     "node-mocks-http": "^1.12.1",
     "oxfmt": "^0.54.0",
     "oxlint": "^1.69.0",
@@ -88,12 +86,6 @@
     "jsona": {
       "optional": true
     }
-  },
-  "lint-staged": {
-    "*.ts": [
-      "oxlint --fix",
-      "oxfmt"
-    ]
   },
   "engines": {
     "node": ">=20"
