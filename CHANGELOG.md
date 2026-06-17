@@ -5,20 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.0.0
+## 1.0.0-rc.1
 
-2026-06-09
+2026-06-17
 
-Modernization release. **Breaking** — drops support for old Node/NestJS and ships
-as an ESM + CommonJS dual package.
+First release candidate for the `1.0.0` revival. The package was dormant for ~3
+years (NestJS 9 era); this RC brings the toolchain, dependencies and build output
+up to date, adds JSON:API serialization, and fixes several latent bugs — while
+keeping the public API (`BaseService`, `ProcessFetchSpecification`, `FetchUtils`,
+`FetchSpecification`, defaults) and its behavior unchanged.
+
+Published under the `rc` dist-tag for integration testing in downstream projects
+(`pnpm add nestjs-base-service@rc`); not yet promoted to `latest`. Expect further
+release candidates before the final `1.0.0`.
+
+**Breaking** (relative to `0.11.0`) — drops support for old Node/NestJS/TypeORM
+and ships as an ESM + CommonJS dual package. Consumers on NestJS 9/10 should
+remain on `0.11.0`.
 
 ### Breaking changes
 
 - **Node.js >= 20** required (was `>=14.17`).
 - **Peer dependencies bumped:** `@nestjs/common` `^11`, `typeorm` `^0.3.20`
   (was `^9.2.1` / `^0.3.11`).
-- **Dual ESM + CJS build** via `tsup`, with an `exports` map. `main` now points
-  to `./dist/index.cjs`; ESM consumers resolve `./dist/index.js`.
+- **Dual ESM + CJS build** via `tsup`, with an `exports` map and bundled type
+  definitions. `main` now points to `./dist/index.cjs`; ESM consumers resolve
+  `./dist/index.js`; types resolve per-condition
+  (`./dist/index.d.ts` / `./dist/index.d.cts`).
 - **Removed unused runtime dependencies:** `express` and `lodash` (the lodash
   helpers used internally were replaced with dependency-free equivalents).
 - **`class-validator` / `class-transformer` are now declared as optional peer
@@ -28,15 +41,19 @@ as an ESM + CommonJS dual package.
 
 ### Added
 
-- **`async BaseService.serialize(data, meta?, includeNames?)`** — serializes
-  entities into a JSON:API document (resource `type`/`id`, attributes,
+- **`async BaseService.serialize(data, meta?, includeNames?)`** — serializes one
+  or many entities into a JSON:API document (resource `type`/`id`, attributes,
   relationships and `included`), powered by
   [`jsona`](https://www.npmjs.com/package/jsona). Resource `type` is derived from
-  TypeORM entity metadata and can be overridden via the new `serializer.type`
-  service option. (Ticks the long-standing "serialization" roadmap item.)
+  TypeORM entity metadata (falling back to the query alias) and can be overridden
+  via the new `serializer.type` service option. (Ticks the long-standing
+  "serialization" roadmap item.)
   - **`jsona` is an _optional_ peer dependency**, imported lazily inside
     `serialize()` — projects that do their own serialization need not install it.
     `serialize()` is `async` and throws a clear error if `jsona` is missing.
+  - `EntityPropertiesMapper` structurally implements the mapper interface, so the
+    package no longer references `jsona` at module-load time, and `jsona` types do
+    not leak into the public `.d.ts` (`JsonApiDocument` is self-contained).
 
 ### Fixed
 
@@ -54,7 +71,9 @@ as an ESM + CommonJS dual package.
 ### Tooling
 
 - Package manager: **pnpm** (was Yarn).
-- Tests: **Vitest** (was Jest); `BaseService`, `FetchUtils`, the serializer and
+- Build: **tsup** (was `tsc`) — dual ESM+CJS + `.d.ts`, `exports` map, sourcemaps.
+- Tests: **Vitest** (was Jest), with `unplugin-swc` so `emitDecoratorMetadata`
+  works for NestJS decorators; `BaseService`, `FetchUtils`, the serializer and
   the internal utilities now have test coverage (>90%).
 - Lint/format: **oxlint + oxfmt** (was ESLint + Prettier).
 - Git hooks: **prek** (a Rust drop-in for pre-commit) via `.pre-commit-config.yaml`,
