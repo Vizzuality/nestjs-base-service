@@ -8,7 +8,9 @@ import { defineConfig } from 'tsup';
 // Paths are resolved from the repo root, since this config is run via the root
 // `build:types` script (`tsup --config packages/types/tsup.config.ts`).
 export default defineConfig({
-  entry: { index: 'src/types/index.ts' },
+  // `index` is the pure types barrel (zero runtime); `query` carries the
+  // fully-typed query builder + parser (built-ins only, still zero deps).
+  entry: { index: 'src/types/index.ts', query: 'src/client/fetch-query.ts' },
   outDir: 'packages/types/dist',
   format: ['esm', 'cjs'],
   dts: true,

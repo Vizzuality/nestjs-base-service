@@ -211,6 +211,21 @@ pnpm build:types   # emits packages/types/dist
 pnpm pack:types    # -> packages/types/vizzuality-nestjs-base-service-types-<version>.tgz
 ```
 
+The package also exposes an optional, fully-typed **query builder** under the
+`./query` subpath — `createFetchQuery<Entity>()` composes the exact query string
+this decorator parses, and `parseFetchQuery()` is its inverse:
+
+```ts
+import { createFetchQuery } from '@vizzuality/nestjs-base-service-types/query';
+
+const qs = createFetchQuery<User>()
+  .filter({ status: 'active' })
+  .search({ name: 'ada' })
+  .sort('createdAt', 'DESC')
+  .page(1, 25)
+  .toQueryString(); // -> feed to `fetch('/api/users?' + qs)`
+```
+
 See [`packages/types/README.md`](./packages/types/README.md) for the full usage
 and install details.
 

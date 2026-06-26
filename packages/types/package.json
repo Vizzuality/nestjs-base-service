@@ -24,6 +24,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./query": {
+      "import": {
+        "types": "./dist/query.d.ts",
+        "default": "./dist/query.js"
+      },
+      "require": {
+        "types": "./dist/query.d.cts",
+        "default": "./dist/query.cjs"
+      }
+    },
     "./package.json": "./package.json"
   }
 }

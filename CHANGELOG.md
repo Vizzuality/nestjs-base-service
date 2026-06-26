@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without pulling in `@nestjs/common` / `typeorm`. Built from the same
   `src/types/` source as the library (single source of truth) via the new
   `build:types` / `pack:types` scripts. No pnpm workspace.
+  - **Query builder (`./query` subpath)** — `createFetchQuery<Entity>()`, an
+    immutable, fully-typed builder that composes the exact query string the
+    `ProcessFetchSpecification` decorator parses (and `.toSpecification()` for
+    the parsed shape), plus its inverse `parseFetchQuery()`. Zero dependencies
+    (built-in `URLSearchParams` only); kept in lockstep with the decorator by a
+    round-trip test and a contract test against the real decorator. The bare
+    types specifier stays runtime-free.
 
 ## 1.0.0-rc.1
 
