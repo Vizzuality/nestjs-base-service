@@ -1,6 +1,6 @@
 {
   "name": "@vizzuality/nestjs-base-service-types",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Type-only contract for nestjs-base-service (FetchSpecification, InfoDTO, ProcessFetchSpecificationArguments).",
   "license": "MIT",
   "files": [

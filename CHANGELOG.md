@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.0.0-rc.2
+
+2026-06-26
+
+Second release candidate for the `1.0.0` revival. Purely **additive** on top of
+`1.0.0-rc.1` — no breaking changes and no changes to existing behavior: a new
+partial-match `search` capability on the fetch specification, and a companion
+types package (with an optional, fully-typed query builder) for frontends. The
+breaking changes relative to `0.11.0` documented under `1.0.0-rc.1` still apply.
+
+Published under the `rc` dist-tag for integration testing
+(`pnpm add nestjs-base-service@rc`); not yet promoted to `latest`.
+
 ### Added
 
 - **Partial-match search** on the fetch specification — a new `search` member
