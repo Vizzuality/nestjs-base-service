@@ -186,6 +186,34 @@ DTO validation is delegated to the host application's `class-validator` setup
 shared instance with your app). Run it inside the `validateBeforeCreate` /
 `validateBeforeUpdate` hooks.
 
+## Types-only companion package
+
+A frontend app (or a shared package) that only needs the contract types —
+`FetchSpecification` and its component interfaces, `InfoDTO`,
+`ProcessFetchSpecificationArguments` — should **not** install this library and
+drag in `@nestjs/common` / `typeorm`. For that, there is a zero-runtime
+companion package, **`@vizzuality/nestjs-base-service-types`**, built from the
+same `src/types/` source so the types can never drift from the API.
+
+```ts
+import type {
+  FetchSpecification,
+  InfoDTO,
+  ProcessFetchSpecificationArguments,
+} from '@vizzuality/nestjs-base-service-types';
+```
+
+Install it as a **devDependency** (the types are erased at build time, adding
+nothing to your bundle). Build and pack it from this repo:
+
+```bash
+pnpm build:types   # emits packages/types/dist
+pnpm pack:types    # -> packages/types/vizzuality-nestjs-base-service-types-<version>.tgz
+```
+
+See [`packages/types/README.md`](./packages/types/README.md) for the full usage
+and install details.
+
 ## Roadmap
 
 - [x] Add tests

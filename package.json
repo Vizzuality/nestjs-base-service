@@ -37,6 +37,8 @@
   },
   "scripts": {
     "build": "tsup",
+    "build:types": "tsup --config packages/types/tsup.config.ts",
+    "pack:types": "pnpm build:types && cd packages/types && pnpm pack",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

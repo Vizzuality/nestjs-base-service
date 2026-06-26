@@ -1,21 +1,17 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { pickBy } from '../utils/object.utils';
 import { FetchSpecification } from '../types/fetch-specification.interface';
+import { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
 import {
   DEFAULT_FIELDS_AND_INCLUDE_SPECIFICATION,
   DEFAULT_PAGINATION,
   DEFAULT_SORT_SPECIFICATION,
 } from '../config/default.config';
 
-export interface ProcessFetchSpecificationArguments {
-  allowedFilters?: string[];
-  /**
-   * Entity properties that may be searched via partial, case-insensitive match
-   * (`?search[<property>]=<term>` → SQL `ILIKE '%term%'`). A search key not in
-   * this list throws, mirroring `allowedFilters`.
-   */
-  allowedSearch?: string[];
-}
+// Re-exported so the package root API is unchanged; the interface itself lives
+// in a pure, runtime-free module (`../types/process-fetch-specification.arguments`)
+// so it can be shared with the types-only companion package.
+export type { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
 
 /**
  * Parameter decorator: extracts `fetchSpecification` from request object.

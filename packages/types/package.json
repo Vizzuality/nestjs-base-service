@@ -1,0 +1,29 @@
+{
+  "name": "@vizzuality/nestjs-base-service-types",
+  "version": "1.0.0-rc.1",
+  "description": "Type-only contract for nestjs-base-service (FetchSpecification, InfoDTO, ProcessFetchSpecificationArguments).",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  }
+}

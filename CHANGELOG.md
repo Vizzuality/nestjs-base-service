@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **Partial-match search** on the fetch specification — a new `search` member
+  (`PartialMatchSpecification`) alongside `filter`. Each `search[<property>]`
+  value is applied as a parameterised, case-insensitive `ILIKE '%term%'` clause
+  (vs `filter`'s exact `IN`). Terms are kept as single literal strings (commas
+  are not split); multiple search keys are `AND`'d together and with any
+  `filter`. The `ProcessFetchSpecification` decorator gains an `allowedSearch`
+  whitelist (mirrors `allowedFilters`), and `BaseService.setSearch()` /
+  `_processBaseSearchTerm()` are overridable for non-PostgreSQL dialects.
+  - The public API is unchanged for existing consumers; `search` is purely
+    additive.
+- **Types-only companion package `@vizzuality/nestjs-base-service-types`** — a
+  zero-runtime, zero-dependency package exposing just the contract types
+  (`FetchSpecification` & components, `InfoDTO`,
+  `ProcessFetchSpecificationArguments`) so frontends can `import type` them
+  without pulling in `@nestjs/common` / `typeorm`. Built from the same
+  `src/types/` source as the library (single source of truth) via the new
+  `build:types` / `pack:types` scripts. No pnpm workspace.
+
 ## 1.0.0-rc.1
 
 2026-06-17
