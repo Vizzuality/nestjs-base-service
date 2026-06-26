@@ -62,8 +62,9 @@ export class SomeModelsService extends BaseService<
 ### 2. Parse the request with `ProcessFetchSpecification`
 
 The `@ProcessFetchSpecification()` parameter decorator turns the request query
-into a `FetchSpecification`. Optionally pass a whitelist of allowed filter keys —
-unknown filter keys then raise an error.
+into a `FetchSpecification`. Optionally pass `allowedFilters` (exact match) and
+`allowedSearch` (partial match) whitelists — keys outside the relevant list then
+raise an error.
 
 ```typescript
 import { FetchSpecification, ProcessFetchSpecification } from 'nestjs-base-service';
@@ -74,7 +75,10 @@ export class SomeModelController {
 
   @Get()
   async findAll(
-    @ProcessFetchSpecification(['status']) // whitelist of filterable keys (recommended)
+    @ProcessFetchSpecification({
+      allowedFilters: ['status'], // exact-match (`IN`) keys (recommended)
+      allowedSearch: ['name'], // partial-match (`ILIKE`) keys
+    })
     fetchSpecification: FetchSpecification,
   ) {
     const [data, totalItems] = await this.someModelsService.findAll(fetchSpecification);
@@ -87,19 +91,28 @@ export class SomeModelController {
 
 `ProcessFetchSpecification` reads these query parameters:
 
-| Parameter           | Example                          | Effect                                                   |
-| ------------------- | -------------------------------- | -------------------------------------------------------- |
-| `page[number]`      | `?page[number]=2`                | Page number (default `1`).                               |
-| `page[size]`        | `?page[size]=50`                 | Items per page (default `25`).                           |
-| `disablePagination` | `?disablePagination=true`        | Return all matching rows (no `LIMIT`/`OFFSET`).          |
-| `sort`              | `?sort=name,-createdAt`          | Sort columns; prefix `-` for `DESC` (`+`/none = `ASC`).  |
-| `fields`            | `?fields=id,name`                | Sparse fieldset — only these columns are `SELECT`ed.     |
-| `omitFields`        | `?omitFields=secret`             | Columns stripped from the result objects after querying. |
-| `include`           | `?include=author,author.profile` | `LEFT JOIN` relations (dot-notation for nested).         |
-| `filter[key]`       | `?filter[status]=active,pending` | Comma-separated values, applied as `key IN (...)`.       |
+| Parameter           | Example                          | Effect                                                          |
+| ------------------- | -------------------------------- | --------------------------------------------------------------- |
+| `page[number]`      | `?page[number]=2`                | Page number (default `1`).                                      |
+| `page[size]`        | `?page[size]=50`                 | Items per page (default `25`).                                  |
+| `disablePagination` | `?disablePagination=true`        | Return all matching rows (no `LIMIT`/`OFFSET`).                 |
+| `sort`              | `?sort=name,-createdAt`          | Sort columns; prefix `-` for `DESC` (`+`/none = `ASC`).         |
+| `fields`            | `?fields=id,name`                | Sparse fieldset — only these columns are `SELECT`ed.            |
+| `omitFields`        | `?omitFields=secret`             | Columns stripped from the result objects after querying.        |
+| `include`           | `?include=author,author.profile` | `LEFT JOIN` relations (dot-notation for nested).                |
+| `filter[key]`       | `?filter[status]=active,pending` | Comma-separated values, applied as `key IN (...)`.              |
+| `search[key]`       | `?search[name]=jo`               | Partial, case-insensitive match, applied as `key ILIKE '%jo%'`. |
 
-> Filter values are always parsed into arrays and applied as parameterised `IN`
-> clauses. Pass `allowedFilters` to the decorator to reject unknown keys.
+> `filter` values are parsed into arrays and applied as parameterised `IN`
+> clauses (exact match). `search` values are kept as a single literal string —
+> commas are **not** split — and applied as parameterised `ILIKE '%term%'`
+> clauses (partial, case-insensitive match); multiple `search` keys are AND'd
+> together and AND'd with any `filter`. Pass `allowedFilters` / `allowedSearch`
+> to the decorator to reject unknown keys.
+
+> **Note:** `ILIKE` is PostgreSQL syntax. On other databases, override
+> `BaseService.setSearch()` (or `_processBaseSearchTerm()`) to emit the dialect's
+> case-insensitive `LIKE` equivalent.
 
 ### Service API
 
@@ -121,7 +134,7 @@ All hooks are `async` and overridable; the base implementations are no-ops (or
 return their input). Override only what you need.
 
 - **Query shaping:** `extendFindAllQuery`, `extendGetByIdQuery`, `setFilters`,
-  `setFiltersUpdate`, `setFiltersDelete`
+  `setSearch`, `setFiltersUpdate`, `setFiltersDelete`
 - **Result shaping:** `extendFindAllResults`, `extendGetByIdResult`,
   `extendCreateResult`, `extendUpdateResult`
 - **Data mapping:** `setDataCreate`, `setDataUpdate`

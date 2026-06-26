@@ -9,6 +9,12 @@ import {
 
 export interface ProcessFetchSpecificationArguments {
   allowedFilters?: string[];
+  /**
+   * Entity properties that may be searched via partial, case-insensitive match
+   * (`?search[<property>]=<term>` → SQL `ILIKE '%term%'`). A search key not in
+   * this list throws, mirroring `allowedFilters`.
+   */
+  allowedSearch?: string[];
 }
 
 /**
@@ -88,6 +94,22 @@ export const ProcessFetchSpecification = createParamDecorator(
       : undefined;
 
     /**
+     * Partial-match search terms. Unlike `filter` (exact match, comma-split into
+     * arrays), each `search[<property>]` value is kept as a single literal
+     * string and later applied as a case-insensitive `ILIKE '%term%'`. Empty
+     * terms are dropped so we never emit a match-everything `ILIKE '%%'`.
+     */
+    fetchSpecification.search = request?.query?.search
+      ? Object.entries<unknown>(request?.query?.search).reduce((acc, [key, value]) => {
+          const term = value == null ? '' : String(value);
+          if (term.length > 0) {
+            acc[key] = term;
+          }
+          return acc;
+        }, {})
+      : undefined;
+
+    /**
      * Delete from the request object's query property all the query params we
      * process in this middleware, since we are passing them on as
      * `req.fetchSpecification` and they are not needed anymore in their
@@ -105,6 +127,7 @@ export const ProcessFetchSpecification = createParamDecorator(
     delete request?.query?.sort;
     delete request?.query?.include;
     delete request?.query?.disablePagination;
+    delete request?.query?.search;
 
     if (!request.fetchSpecification) {
       request.fetchSpecification = {};
@@ -123,6 +146,20 @@ export const ProcessFetchSpecification = createParamDecorator(
 
       if (Object.keys(result).length > 0) {
         request.fetchSpecification.filter = result;
+      }
+    }
+
+    if (processFetchSpecificationArgs?.allowedSearch) {
+      const result = pickBy(request.fetchSpecification.search, function (value, key) {
+        if (processFetchSpecificationArgs.allowedSearch.includes(key)) {
+          return true;
+        } else {
+          throw new Error(`Invalid search key: ${key}`);
+        }
+      });
+
+      if (Object.keys(result).length > 0) {
+        request.fetchSpecification.search = result;
       }
     }
 

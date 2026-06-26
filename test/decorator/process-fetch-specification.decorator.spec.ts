@@ -176,4 +176,36 @@ describe('Test ProcessFetchSpecification decorator', () => {
     const { result } = run({ filter: { foo: 'bar' } }, { allowedFilters: ['foo'] });
     expect(result.filter).toStrictEqual({ foo: ['bar'] });
   });
+
+  describe('search parsing (partial match)', () => {
+    it('leaves search undefined when no search params are provided', () => {
+      expect(run({}).result.search).toBeUndefined();
+    });
+
+    it('keeps each search term as a single literal string (no comma splitting)', () => {
+      const { result } = run({ search: { name: 'jo', city: 'new,york' } });
+      expect(result.search).toStrictEqual({ name: 'jo', city: 'new,york' });
+    });
+
+    it('drops empty search terms so we never emit ILIKE %%', () => {
+      const { result } = run({ search: { name: '', city: 'lon' } });
+      expect(result.search).toStrictEqual({ city: 'lon' });
+    });
+
+    it('removes the consumed search param from the request query', () => {
+      const { req } = run({ search: { name: 'jo' } });
+      expect(req.query).not.toHaveProperty('search');
+    });
+
+    it('keeps a whitelisted subset of search keys when allowedSearch is provided', () => {
+      const { result } = run({ search: { name: 'jo' } }, { allowedSearch: ['name'] });
+      expect(result.search).toStrictEqual({ name: 'jo' });
+    });
+
+    it('throws on a search key that is not in allowedSearch', () => {
+      expect(() => run({ search: { secret: 'x' } }, { allowedSearch: ['name'] })).toThrowError(
+        'Invalid search key: secret',
+      );
+    });
+  });
 });

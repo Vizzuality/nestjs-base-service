@@ -90,6 +90,44 @@ describe('BaseService', () => {
         statusValues: ['active', 'pending'],
       });
     });
+
+    it('applies search terms as a parameterised case-insensitive ILIKE clause', async () => {
+      await service.findAll({ search: { name: 'jo' } });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.name ILIKE :nameSearch', {
+        nameSearch: '%jo%',
+      });
+    });
+
+    it('applies one ILIKE per search key, AND-combined with exact filters', async () => {
+      await service.findAll({
+        filter: { status: ['active'] },
+        search: { name: 'jo', city: 'lon' },
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.status IN (:...statusValues)', {
+        statusValues: ['active'],
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.name ILIKE :nameSearch', {
+        nameSearch: '%jo%',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.city ILIKE :citySearch', {
+        citySearch: '%lon%',
+      });
+    });
+
+    it('keeps commas as part of a literal search term (no splitting)', async () => {
+      await service.findAll({ search: { name: 'new,york' } });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.name ILIKE :nameSearch', {
+        nameSearch: '%new,york%',
+      });
+    });
+
+    it('ignores empty or non-string search terms', async () => {
+      await service.findAll({ search: { name: '', status: 123 as unknown as string } });
+      const ilikeCalls = (qb.andWhere as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([clause]) => typeof clause === 'string' && clause.includes('ILIKE'),
+      );
+      expect(ilikeCalls).toHaveLength(0);
+    });
   });
 
   describe('findAllRaw', () => {

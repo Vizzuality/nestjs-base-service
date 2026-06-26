@@ -157,8 +157,13 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       fetchSpecification?.filter,
       info,
     );
-    const queryWithFetchSpecificationApplied = FetchUtils.processFetchSpecification<Entity>(
+    const queryWithSearch = await this.setSearch(
       queryWithFilters,
+      fetchSpecification?.search,
+      info,
+    );
+    const queryWithFetchSpecificationApplied = FetchUtils.processFetchSpecification<Entity>(
+      queryWithSearch,
       this.alias,
       fetchSpecification,
     );
@@ -270,6 +275,49 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     if (Array.isArray(filterValues) && filterValues.length) {
       query.andWhere(`${this.alias}.${filterKey} IN (:...${filterKey}Values)`, {
         [`${filterKey}Values`]: filterValues,
+      });
+    }
+    return query;
+  }
+
+  /**
+   * Apply partial-match search terms to the query.
+   *
+   * Each entry in `search` is matched as a case-insensitive substring against
+   * its column (SQL `ILIKE '%term%'`), unlike `setFilters()` which matches
+   * values exactly. Multiple search terms are AND'd together (and AND'd with
+   * any exact filters). Override to customise (e.g. to OR terms, or to search
+   * across joined columns).
+   */
+  async setSearch(
+    query: SelectQueryBuilder<Entity>,
+    search?: Record<string, any>,
+    info?: Info,
+  ): Promise<SelectQueryBuilder<Entity>> {
+    return this._processBaseSearch(query, search, Object.keys(search || {}));
+  }
+
+  protected _processBaseSearch<Search>(
+    query: SelectQueryBuilder<Entity>,
+    search: Search,
+    searchKeys: any,
+  ): SelectQueryBuilder<Entity> {
+    if (search) {
+      Object.entries(search)
+        .filter((i) => Array.from(searchKeys).includes(i[0]))
+        .forEach((i) => this._processBaseSearchTerm(query, i));
+    }
+
+    return query;
+  }
+
+  protected _processBaseSearchTerm(
+    query: SelectQueryBuilder<Entity>,
+    [searchKey, searchTerm]: [string, unknown],
+  ): SelectQueryBuilder<Entity> {
+    if (typeof searchTerm === 'string' && searchTerm.length) {
+      query.andWhere(`${this.alias}.${searchKey} ILIKE :${searchKey}Search`, {
+        [`${searchKey}Search`]: `%${searchTerm}%`,
       });
     }
     return query;
