@@ -39,6 +39,16 @@ export class BaseServiceModule {
   static forRoot(options: BaseServiceModuleOptions = {}): DynamicModule {
     const validation = options.validation ?? 'class-validator';
 
+    // Fail fast on an unrecognised strategy rather than silently wiring nothing
+    // (which would leave a `validation: 'zod'` typo with no validation at all).
+    if (validation !== 'class-validator' && validation !== 'zod') {
+      throw new Error(
+        `BaseServiceModule.forRoot: unknown validation strategy '${String(
+          validation,
+        )}'. Expected 'class-validator' or 'zod'.`,
+      );
+    }
+
     const providers: Provider[] =
       validation === 'zod' ? [{ provide: APP_PIPE, useClass: ZodValidationPipe }] : [];
 

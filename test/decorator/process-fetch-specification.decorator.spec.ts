@@ -1,4 +1,5 @@
 import * as httpMock from 'node-mocks-http';
+import { BadRequestException } from '@nestjs/common';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 import {
@@ -216,8 +217,8 @@ describe('Test ProcessFetchSpecification decorator', () => {
     });
 
     it('accepts a nested to-one sort path when whitelisted', () => {
-      const { result } = run({ sort: ['project.name'] }, { allowedSort: ['project.name'] });
-      expect(result.sort).toStrictEqual(['project.name']);
+      const { result } = run({ sort: ['photo.title'] }, { allowedSort: ['photo.title'] });
+      expect(result.sort).toStrictEqual(['photo.title']);
     });
 
     it('throws on a sort key outside allowedSort (closing the raw-sort injection vector)', () => {
@@ -229,6 +230,49 @@ describe('Test ProcessFetchSpecification decorator', () => {
     it('does not gate sort when allowedSort is not provided', () => {
       const { result } = run({ sort: 'anything' });
       expect(result.sort).toStrictEqual(['anything']);
+    });
+  });
+
+  describe('array wire-form tolerance (bracket-expanding parser)', () => {
+    it('accepts fields/omitFields/include/sort as arrays', () => {
+      const { result } = run({
+        fields: ['id', 'title'],
+        omitFields: ['secret'],
+        include: ['author', 'author.profile'],
+        sort: ['-createdAt', 'title'],
+      });
+      expect(result.fields).toStrictEqual(['id', 'title']);
+      expect(result.omitFields).toStrictEqual(['secret']);
+      expect(result.include).toStrictEqual(['author', 'author.profile']);
+      expect(result.sort).toStrictEqual(['-createdAt', 'title']);
+    });
+
+    it('accepts filter values as arrays (filter[key][]=…)', () => {
+      const { result } = run({ filter: { status: ['a', 'b'] } });
+      expect(result.filter).toStrictEqual({ status: ['a', 'b'] });
+    });
+
+    it('takes the last value when a search term arrives as an array (qs last-wins)', () => {
+      const { result } = run({ search: { title: ['jo', 'ki'] } });
+      expect(result.search).toStrictEqual({ title: 'ki' });
+    });
+  });
+
+  describe('invalid keys raise a 400 (BadRequestException)', () => {
+    it('throws BadRequestException for a disallowed filter key', () => {
+      expect(() => run({ filter: { bad: 'x' } }, { allowedFilters: ['ok'] })).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws BadRequestException for a disallowed sort key', () => {
+      expect(() => run({ sort: 'bad' }, { allowedSort: ['ok'] })).toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for a disallowed search key', () => {
+      expect(() => run({ search: { bad: 'x' } }, { allowedSearch: ['ok'] })).toThrow(
+        BadRequestException,
+      );
     });
   });
 });

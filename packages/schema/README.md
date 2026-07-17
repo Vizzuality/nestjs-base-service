@@ -28,14 +28,14 @@ instance (dual instances break `instanceof` / schema identity).
 
 ```ts
 import { buildFetchQuerySchema } from '@vizzuality/base-service-schema';
-import type { Project } from './project.entity';
+import type { Photo } from './photo.entity';
 
-export const projectQuerySchema = buildFetchQuerySchema<Project>()({
-  columnsAllowedAsFilters: ['name', 'id'],
-  columnsAllowedAsSearch: ['name'],
-  columnsAllowedAsIncludes: ['organisation'],
-  columnsAllowedAsSortable: ['name', 'createdAt', 'updatedAt'],
-  columnsAllowedAsFields: ['id', 'name', 'createdAt', 'updatedAt'],
+export const photoQuerySchema = buildFetchQuerySchema<Photo>()({
+  columnsAllowedAsFilters: ['title', 'id'],
+  columnsAllowedAsSearch: ['title'],
+  columnsAllowedAsIncludes: ['author'],
+  columnsAllowedAsSortable: ['title', 'createdAt', 'updatedAt'],
+  columnsAllowedAsFields: ['id', 'title', 'createdAt', 'updatedAt'],
 });
 ```
 
@@ -69,19 +69,19 @@ const baseContract = oc.errors({
   BAD_REQUEST: { status: 400, message: 'Bad Request', data: jsonApiErrorDocumentSchema },
 });
 export const list = baseContract
-  .route({ method: 'GET', path: '/projects', inputStructure: 'detailed' })
-  .input(z.object({ query: projectQuerySchema })); // ← the builder's schema
+  .route({ method: 'GET', path: '/photos', inputStructure: 'detailed' })
+  .input(z.object({ query: photoQuerySchema })); // ← the builder's schema
 ```
 
 ```ts
 // ts-rest
 import { initContract } from '@ts-rest/core';
 const c = initContract();
-export const projectContract = c.router({
+export const photoContract = c.router({
   list: {
     method: 'GET',
-    path: '/projects',
-    query: projectQuerySchema,
+    path: '/photos',
+    query: photoQuerySchema,
     responses: {
       /* … */
     },

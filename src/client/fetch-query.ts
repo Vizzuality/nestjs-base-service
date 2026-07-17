@@ -3,7 +3,7 @@
  * contract that `nestjs-base-service`'s `ProcessFetchSpecification` decorator
  * parses from `req.query`.
  *
- * Depends ONLY on the project's own types and the built-in `URLSearchParams`.
+ * Depends ONLY on the package's own types and the built-in `URLSearchParams`.
  * It does NOT import the decorator, `FetchUtils`, `@nestjs/*` or `typeorm`, so
  * it is safe to ship to a browser / client bundle.
  *

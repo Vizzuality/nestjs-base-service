@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
-import type { JsonApiErrorDocument, JsonApiErrorObject } from '../types/json-api';
-
 /**
  * Runtime (Zod) counterparts of the JSON:API error type aliases in the types
- * companion package. Kept here (not in the types package) because they carry a
- * `zod` runtime; the pure type aliases stay dependency-free over there.
+ * companion package (`JsonApiErrorObject` / `JsonApiErrorDocument`). Kept here
+ * (not in the types package) because they carry a `zod` runtime; the pure type
+ * aliases stay dependency-free over there.
  *
- * The `satisfies` guards keep the inferred Zod output in lockstep with the
- * hand-written type aliases — if the two ever drift, this stops compiling.
+ * These schemas are exercised at runtime by `test/schema/json-api.schema.spec.ts`
+ * (a compile-time `z.infer` assignment guard would be vacuous under this repo's
+ * `strict: false` tsconfig, so the parity is checked by tests instead).
  */
 export const jsonApiErrorObjectSchema = z.object({
   status: z.string().optional(),
@@ -29,9 +29,3 @@ export const jsonApiErrorObjectSchema = z.object({
 export const jsonApiErrorDocumentSchema = z.object({
   errors: z.array(jsonApiErrorObjectSchema),
 });
-
-// Compile-time assertions that the schemas and the type aliases agree.
-const _errorObject: z.infer<typeof jsonApiErrorObjectSchema> = {} as JsonApiErrorObject;
-const _errorDocument: z.infer<typeof jsonApiErrorDocumentSchema> = {} as JsonApiErrorDocument;
-void _errorObject;
-void _errorDocument;

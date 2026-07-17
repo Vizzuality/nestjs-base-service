@@ -27,7 +27,7 @@ type Tuple<T extends string> = [T, ...T[]];
 /**
  * Config accepted by the builder: the pure per-facet allow-lists (from the types
  * package) plus an optional Zod `extend` object merged into the resulting schema
- * (e.g. an app-specific `organisationId`). `extend` is modelled here rather than
+ * (e.g. an app-specific `authorId`). `extend` is modelled here rather than
  * in the types package so `zod` never leaks into the zero-dependency types
  * companion.
  */
@@ -57,8 +57,14 @@ const csvToArray = (value: unknown): unknown =>
  */
 const booleanFlag = z.preprocess((value) => {
   if (typeof value === 'boolean') return value;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (typeof value === 'string') {
+    // Case-insensitive, so `?disablePagination=TRUE` agrees with the decorator's
+    // `.toLowerCase() === 'true'` parsing. Anything else falls through to
+    // `z.boolean()` and is rejected.
+    const normalized = value.toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
   return value;
 }, z.boolean());
 

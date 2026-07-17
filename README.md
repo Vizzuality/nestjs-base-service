@@ -190,10 +190,10 @@ single literal (commas are **not** split).
 (ManyToOne / OneToOne), not just root columns:
 
 ```
-GET /farms?include=project&sort=project.name      # farms ordered by their project's name
-GET /farms?filter[project.name]=Acorn             # only farms whose project is "Acorn"
-GET /farms?search[project.name]=aco               # ILIKE on the project's name
-GET /farms?sort=project.organisation.name         # two-level path
+GET /photos?include=author&sort=author.name       # photos ordered by their author's name
+GET /photos?filter[author.name]=Ansel             # only photos whose author is "Ansel"
+GET /photos?search[author.name]=ans               # ILIKE on the author's name
+GET /photos?sort=author.studio.name               # two-level path
 ```
 
 - Each path segment is joined with the **same alias convention as `include`**
@@ -216,9 +216,9 @@ GET /farms?sort=project.organisation.name         # two-level path
 
 ```typescript
 @ProcessFetchSpecification({
-  allowedFilters: ['status', 'project.name'],
-  allowedSearch: ['name', 'project.name'],
-  allowedSort: ['name', 'createdAt', 'project.name'], // gates sort paths
+  allowedFilters: ['status', 'author.name'],
+  allowedSearch: ['title', 'author.name'],
+  allowedSort: ['title', 'createdAt', 'author.name'], // gates sort paths
 })
 fetchSpecification: FetchSpecification,
 ```
@@ -227,11 +227,11 @@ With the Zod schema builder, express the same allow-lists (including nested path
 in the config:
 
 ```ts
-buildFetchQuerySchema<Farm>()({
-  columnsAllowedAsSortable: ['name', 'project.name'],
-  columnsAllowedAsFilters: ['project.name'],
-  columnsAllowedAsSearch: ['project.name'],
-  columnsAllowedAsIncludes: ['project'],
+buildFetchQuerySchema<Photo>()({
+  columnsAllowedAsSortable: ['title', 'author.name'],
+  columnsAllowedAsFilters: ['author.name'],
+  columnsAllowedAsSearch: ['author.name'],
+  columnsAllowedAsIncludes: ['author'],
 });
 ```
 
@@ -326,7 +326,7 @@ const adapter: JsonApiSerializerAdapter = {
   },
 };
 
-super(repository, 'projects', { serializer: { type: 'projects', adapter } });
+super(repository, 'photos', { serializer: { type: 'photos', adapter } });
 ```
 
 The adapter is called with the resolved resource `type`, the entity/entities and
@@ -344,9 +344,9 @@ in any sparse fieldset):
 
 ```typescript
 @Get()
-async list(@Query() query: ListProjectsQueryDto) {
+async list(@Query() query: ListPhotosQueryDto) {
   // -> { data: [...], meta: { totalItems, page, size } }
-  return this.projectsService.findAllPaginated(query, { organisationId: query.organisationId });
+  return this.photosService.findAllPaginated(query, { authorId: query.authorId });
 }
 ```
 
@@ -387,10 +387,10 @@ schema:
 
 ```typescript
 import { createZodDto } from 'nestjs-base-service';
-import { projectQuerySchema } from '@acorn/contracts/project';
+import { photoQuerySchema } from '@myorg/contracts/photo';
 
 // Library helper (no extra deps):
-export class ListProjectsQueryDto extends createZodDto(projectQuerySchema) {}
+export class ListPhotosQueryDto extends createZodDto(photoQuerySchema) {}
 ```
 
 `nestjs-zod` is an **optional peer**: if you install it and use _its_
@@ -398,6 +398,15 @@ export class ListProjectsQueryDto extends createZodDto(projectQuerySchema) {}
 and the library's `ZodValidationPipe` validates those DTOs too (it reads their
 static `schema`). Without `nestjs-zod`, the library's `createZodDto` +
 `ZodValidationPipe` still validate, just without auto-Swagger.
+
+> **⚠️ Don't run a global class-validator `ValidationPipe` over your Zod DTOs.**
+> `ZodValidationPipe` is additive and leaves non-Zod (class-validator) DTOs
+> untouched — but the reverse is not safe. A global
+> `new ValidationPipe({ whitelist: true })` will strip every property off a
+> Zod-backed DTO (it has no `class-validator` decorators), so your handler sees an
+> empty query/body. If you opt into `validation: 'zod'`, either drop the global
+> class-validator pipe or scope it to the routes that actually use
+> class-validator DTOs.
 
 ## The fetch-query schema builder
 
@@ -415,14 +424,14 @@ it returns a **Zod object schema** that:
 ```ts
 import { z } from 'zod';
 import { buildFetchQuerySchema } from '@vizzuality/base-service-schema';
-import type { Project } from '@myorg/entities'; // type-only import
+import type { Photo } from '@myorg/entities'; // type-only import
 
-export const projectQuerySchema = buildFetchQuerySchema<Project>()({
-  columnsAllowedAsFilters: ['name', 'id'], //                      exact IN(...)
-  columnsAllowedAsSearch: ['name'], //                             ILIKE '%…%'
-  columnsAllowedAsIncludes: ['organisation'], //                   LEFT JOIN + select
-  columnsAllowedAsSortable: ['name', 'createdAt', 'organisation.name'], // nested ok
-  columnsAllowedAsFields: ['id', 'name', 'createdAt'], //          sparse fieldset
+export const photoQuerySchema = buildFetchQuerySchema<Photo>()({
+  columnsAllowedAsFilters: ['title', 'id'], //                exact IN(...)
+  columnsAllowedAsSearch: ['title'], //                       ILIKE '%…%'
+  columnsAllowedAsIncludes: ['author'], //                    LEFT JOIN + select
+  columnsAllowedAsSortable: ['title', 'createdAt', 'author.name'], // nested ok
+  columnsAllowedAsFields: ['id', 'title', 'createdAt'], //    sparse fieldset
 });
 ```
 
@@ -454,21 +463,21 @@ The output is a plain `ZodObject`, so refine it per route:
 
 ```ts
 // list: add an app-specific query param
-export const listProjectsQuerySchema = projectQuerySchema.extend({
-  organisationId: z.string().uuid().optional(),
+export const listPhotosQuerySchema = photoQuerySchema.extend({
+  authorId: z.string().uuid().optional(),
 });
 
 // get-one: only the shaping facets, no pagination/sort/filter
-export const getProjectQuerySchema = projectQuerySchema.pick({
+export const getPhotoQuerySchema = photoQuerySchema.pick({
   fields: true,
   omitFields: true,
   include: true,
 });
 
 // or pass `extend` inline in the config:
-buildFetchQuerySchema<Project>()({
-  columnsAllowedAsSortable: ['name'],
-  extend: z.object({ organisationId: z.string().uuid().optional() }),
+buildFetchQuerySchema<Photo>()({
+  columnsAllowedAsSortable: ['title'],
+  extend: z.object({ authorId: z.string().uuid().optional() }),
 });
 ```
 
@@ -476,15 +485,15 @@ buildFetchQuerySchema<Project>()({
 
 ```ts
 // the *input* a client sends (strings, pre-coercion)
-export type ListProjectsQuery = z.input<typeof listProjectsQuerySchema>;
+export type ListPhotosQuery = z.input<typeof listPhotosQuerySchema>;
 // the *output* the API receives (coerced + narrowed)
-export type ListProjectsQueryParsed = z.infer<typeof listProjectsQuerySchema>;
+export type ListPhotosQueryParsed = z.infer<typeof listPhotosQuerySchema>;
 ```
 
 ### Nested paths
 
 `columnsAllowedAs{Sortable,Filters,Search}` accept to-one nested paths
-(`'organisation.name'`, bounded to depth 2) and are **typed** to the entity's
+(`'author.name'`, bounded to depth 2) and are **typed** to the entity's
 relation graph, so you get autocomplete and a compile error on a bad path. See
 [Nested-relation sort / filter / search](#nested-relation-sort--filter--search-to-one)
 for the runtime behaviour.
@@ -513,22 +522,22 @@ browser.
 ### Shared: the query schema + response types
 
 ```ts
-// packages/contracts/src/project/fetch.ts
+// packages/contracts/src/photo/fetch.ts
 import { z } from 'zod';
 import { buildFetchQuerySchema } from '@vizzuality/base-service-schema';
-import type { Project } from '@myorg/entities';
+import type { Photo } from '@myorg/entities';
 
-export const projectQuerySchema = buildFetchQuerySchema<Project>()({
-  columnsAllowedAsFilters: ['name', 'id'],
-  columnsAllowedAsSearch: ['name'],
-  columnsAllowedAsIncludes: ['organisation'],
-  columnsAllowedAsSortable: ['name', 'createdAt', 'organisation.name'],
-  columnsAllowedAsFields: ['id', 'name', 'createdAt'],
+export const photoQuerySchema = buildFetchQuerySchema<Photo>()({
+  columnsAllowedAsFilters: ['title', 'id'],
+  columnsAllowedAsSearch: ['title'],
+  columnsAllowedAsIncludes: ['author'],
+  columnsAllowedAsSortable: ['title', 'createdAt', 'author.name'],
+  columnsAllowedAsFields: ['id', 'title', 'createdAt'],
 });
-export const listProjectsQuerySchema = projectQuerySchema.extend({
-  organisationId: z.string().uuid().optional(),
+export const listPhotosQuerySchema = photoQuerySchema.extend({
+  authorId: z.string().uuid().optional(),
 });
-export const getProjectQuerySchema = projectQuerySchema.pick({
+export const getPhotoQuerySchema = photoQuerySchema.pick({
   fields: true,
   omitFields: true,
   include: true,
@@ -542,10 +551,10 @@ import type {
   JsonApiCollection,
   JsonApiPaginationMeta,
 } from '@vizzuality/nestjs-base-service-types';
-import type { Project } from '@myorg/entities';
+import type { Photo } from '@myorg/entities';
 
-export type ProjectResource = JsonApiResource<'project', Project>;
-export type ProjectCollection = JsonApiCollection<'project', Project> & {
+export type PhotoResource = JsonApiResource<'photo', Photo>;
+export type PhotoCollection = JsonApiCollection<'photo', Photo> & {
   meta: JsonApiPaginationMeta;
 };
 ```
@@ -553,7 +562,7 @@ export type ProjectCollection = JsonApiCollection<'project', Project> & {
 ### With oRPC
 
 Wire typed JSON:API errors once on a base contract using the error Zod schema,
-then feed `listProjectsQuerySchema` straight into `.input()`:
+then feed `listPhotosQuerySchema` straight into `.input()`:
 
 ```ts
 // packages/contracts/src/base.contract.ts
@@ -568,42 +577,42 @@ export const baseContract = oc.errors({
 ```
 
 ```ts
-// packages/contracts/src/project/contract.ts
+// packages/contracts/src/photo/contract.ts
 import { z } from 'zod';
 import { type } from '@orpc/contract';
 import { baseContract } from '../base.contract.js';
-import { listProjectsQuerySchema, getProjectQuerySchema } from './fetch.js';
-import type { ProjectResource, ProjectCollection } from '../json-api.js';
+import { listPhotosQuerySchema, getPhotoQuerySchema } from './fetch.js';
+import type { PhotoResource, PhotoCollection } from '../json-api.js';
 
-export const projectContract = {
+export const photoContract = {
   list: baseContract
-    .route({ method: 'GET', path: '/projects', inputStructure: 'detailed' })
-    .input(z.object({ query: listProjectsQuerySchema })) // ← the builder's schema
-    .output(type<ProjectCollection>()),
+    .route({ method: 'GET', path: '/photos', inputStructure: 'detailed' })
+    .input(z.object({ query: listPhotosQuerySchema })) // ← the builder's schema
+    .output(type<PhotoCollection>()),
   get: baseContract
-    .route({ method: 'GET', path: '/projects/{id}', inputStructure: 'detailed' })
-    .input(z.object({ params: z.object({ id: z.string().uuid() }), query: getProjectQuerySchema }))
-    .output(type<ProjectResource>()),
+    .route({ method: 'GET', path: '/photos/{id}', inputStructure: 'detailed' })
+    .input(z.object({ params: z.object({ id: z.string().uuid() }), query: getPhotoQuerySchema }))
+    .output(type<PhotoResource>()),
 };
 ```
 
 **Server** (NestJS, via `@orpc/nest`). Turn the schema into a DTO, and let
-`findAllPaginated` return the exact `ProjectCollection & { meta }` the contract
+`findAllPaginated` return the exact `PhotoCollection & { meta }` the contract
 promises:
 
 ```ts
-// projects.dto.ts
+// photos.dto.ts
 import { createZodDto } from 'nestjs-zod'; // or from 'nestjs-base-service'
-import { listProjectsQuerySchema } from '@myorg/contracts/project';
-export class ListProjectsQueryDto extends createZodDto(listProjectsQuerySchema) {}
+import { listPhotosQuerySchema } from '@myorg/contracts/photo';
+export class ListPhotosQueryDto extends createZodDto(listPhotosQuerySchema) {}
 ```
 
 ```ts
-// projects.controller.ts
-@Implement(contract.projects.list)
-list(@Query() query: ListProjectsQueryDto) {
-  return implement(contract.projects.list).handler(() =>
-    this.service.findAllPaginated(query, { organisationId: query.organisationId }),
+// photos.controller.ts
+@Implement(contract.photos.list)
+list(@Query() query: ListPhotosQueryDto) {
+  return implement(contract.photos.list).handler(() =>
+    this.service.findAllPaginated(query, { authorId: query.authorId }),
   );
 }
 ```
@@ -619,10 +628,10 @@ import { contract } from '@myorg/contracts';
 const link = new OpenAPILink(contract, { url: 'https://api.example.com/v1' });
 const client: ContractRouterClient<typeof contract> = createORPCClient(link);
 
-const projects = await client.projects.list({
-  query: { sort: ['-createdAt'], filter: { name: 'Acorn' }, page: { size: 25 } },
+const photos = await client.photos.list({
+  query: { sort: ['-createdAt'], filter: { title: 'Sunset' }, page: { size: 25 } },
 });
-// projects.data → typed JSON:API resources; projects.meta → { totalItems, page, size }
+// photos.data → typed JSON:API resources; photos.meta → { totalItems, page, size }
 ```
 
 ### With ts-rest
@@ -630,28 +639,28 @@ const projects = await client.projects.list({
 The same schema drops into a `@ts-rest/core` router as the `query`:
 
 ```ts
-// packages/contracts/src/project.contract.ts
+// packages/contracts/src/photo.contract.ts
 import { initContract } from '@ts-rest/core';
 import { jsonApiErrorDocumentSchema } from '@vizzuality/base-service-schema';
-import { listProjectsQuerySchema, getProjectQuerySchema } from './project/fetch';
-import type { ProjectResource, ProjectCollection } from './json-api';
+import { listPhotosQuerySchema, getPhotoQuerySchema } from './photo/fetch';
+import type { PhotoResource, PhotoCollection } from './json-api';
 
 const c = initContract();
-export const projectContract = c.router({
+export const photoContract = c.router({
   list: {
     method: 'GET',
-    path: '/projects',
-    query: listProjectsQuerySchema, // ← the builder's schema
+    path: '/photos',
+    query: listPhotosQuerySchema, // ← the builder's schema
     responses: {
-      200: c.type<ProjectCollection>(),
+      200: c.type<PhotoCollection>(),
       400: jsonApiErrorDocumentSchema,
     },
   },
   get: {
     method: 'GET',
-    path: '/projects/:id',
-    query: getProjectQuerySchema,
-    responses: { 200: c.type<ProjectResource>(), 404: jsonApiErrorDocumentSchema },
+    path: '/photos/:id',
+    query: getPhotoQuerySchema,
+    responses: { 200: c.type<PhotoResource>(), 404: jsonApiErrorDocumentSchema },
   },
 });
 ```
@@ -659,9 +668,9 @@ export const projectContract = c.router({
 **Server** (`@ts-rest/nest`):
 
 ```ts
-@TsRestHandler(projectContract.list)
+@TsRestHandler(photoContract.list)
 async list() {
-  return tsRestHandler(projectContract.list, async ({ query }) => ({
+  return tsRestHandler(photoContract.list, async ({ query }) => ({
     status: 200,
     body: await this.service.findAllPaginated(query),
   }));
@@ -672,9 +681,9 @@ async list() {
 
 ```ts
 import { initClient } from '@ts-rest/core';
-import { projectContract } from '@myorg/contracts';
+import { photoContract } from '@myorg/contracts';
 
-const client = initClient(projectContract, { baseUrl: 'https://api.example.com/v1' });
+const client = initClient(photoContract, { baseUrl: 'https://api.example.com/v1' });
 const res = await client.list({ query: { sort: ['-createdAt'], page: { size: 25 } } });
 if (res.status === 200) res.body.data; // typed JSON:API collection
 ```
@@ -682,7 +691,7 @@ if (res.status === 200) res.body.data; // typed JSON:API collection
 ### Two things to get right
 
 1. **Query parser (server).** oRPC's `OpenAPILink` and ts-rest serialize array
-   query params in bracket form (`sort[]=`, `filter[name][]=`), so the API **must**
+   query params in bracket form (`sort[]=`, `filter[title][]=`), so the API **must**
    use the bracket-expanding parser — see
    [the prerequisite](#query-parser-prerequisite-required). The builder tolerates
    both arrays and CSV, but the host has to expand the brackets into objects first.

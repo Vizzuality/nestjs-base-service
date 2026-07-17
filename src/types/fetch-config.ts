@@ -46,7 +46,7 @@ type PrevDepth = [never, 0, 1, 2, 3];
  * column of the related entity.
  *
  * The depth bound is essential: entities have circular relations (e.g.
- * `Farm.project` ↔ `Project.farms`), so an unbounded nested-key type would
+ * `Photo.author` ↔ `Author.photos`), so an unbounded nested-key type would
  * recurse forever and blow up `tsc`. The `Depth extends 0 → never` base case and
  * the decrementing `PrevDepth` counter cap the descent.
  */
@@ -72,7 +72,7 @@ export type ColumnPathsList<Entity> = readonly ColumnPathsOf<Entity>[];
  * `z.undefined()` for it).
  *
  * `sortable`, `filters` and `search` accept **nested to-one paths** (e.g.
- * `'project.name'`, `'project.organisation.name'`) in addition to the entity's
+ * `'photo.title'`, `'photo.author.name'`) in addition to the entity's
  * own columns — see `NestedColumnsOf`. `includes` and `fields` stay root-only:
  * includes already nest at runtime via their own dot-paths, and sparse fields on
  * a relation is a separate, out-of-scope feature.

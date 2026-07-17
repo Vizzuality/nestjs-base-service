@@ -16,6 +16,20 @@ describe('ZodValidationPipe', () => {
     expect(pipe.transform(value, meta(Object))).toBe(value);
   });
 
+  it('passes through a class whose `schema`/`zodSchema` is not a function', () => {
+    class NotReallyADto {
+      static schema = { notSafeParse: true };
+      static zodSchema = 'nope';
+    }
+    const value = { anything: true };
+    expect(pipe.transform(value, meta(NotReallyADto))).toBe(value);
+  });
+
+  it('passes through when metatype is undefined', () => {
+    const value = { anything: true };
+    expect(pipe.transform(value, { type: 'query', metatype: undefined as never })).toBe(value);
+  });
+
   it('validates and returns parsed data for a library createZodDto', () => {
     const Dto = createZodDto(schema);
     expect(pipe.transform({ name: 'Ada', age: '42' }, meta(Dto))).toEqual({ name: 'Ada', age: 42 });
@@ -62,5 +76,12 @@ describe('BaseServiceModule.forRoot', () => {
     const dynamic = BaseServiceModule.forRoot({ validation: 'zod' });
     expect(dynamic.providers).toEqual([{ provide: APP_PIPE, useClass: ZodValidationPipe }]);
     expect(dynamic.module).toBe(BaseServiceModule);
+  });
+
+  it('throws (fail-fast) on an unknown validation strategy', () => {
+    expect(() =>
+      // @ts-expect-error — deliberately invalid value to exercise the runtime guard
+      BaseServiceModule.forRoot({ validation: 'zodd' }),
+    ).toThrowError(/unknown validation strategy 'zodd'/);
   });
 });

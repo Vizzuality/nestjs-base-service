@@ -7,7 +7,7 @@ export interface ProcessFetchSpecificationArguments {
    */
   allowedSearch?: string[];
   /**
-   * Columns (or to-one nested paths, e.g. `'project.name'`) that may be sorted
+   * Columns (or to-one nested paths, e.g. `'photo.title'`) that may be sorted
    * on. A `sort` entry whose stripped path is not in this list throws.
    *
    * Sorting is otherwise interpolated into the ORDER BY, so gating it here (plus

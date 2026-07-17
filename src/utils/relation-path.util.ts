@@ -11,9 +11,9 @@ const PROPERTY_PATH_GRAMMAR = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)
  * Resolve a (possibly nested) property path to a `<alias>.<column>` reference
  * usable in ORDER BY / WHERE, ensuring the relation chain is joined.
  *
- *   'name'          → '<rootAlias>.name'                              (no join)
- *   'project.name'  → leftJoin '<rootAlias>.project' as 'project'    → 'project.name'
- *   'a.b.col'       → leftJoin ... as 'a', then '<a>.b' as 'a_b'     → 'a_b.col'
+ *   'title'         → '<rootAlias>.title'                            (no join)
+ *   'photo.title'   → leftJoin '<rootAlias>.photo' as 'photo'       → 'photo.title'
+ *   'a.b.col'       → leftJoin ... as 'a', then '<a>.b' as 'a_b'    → 'a_b.col'
  *
  * - Aliases follow the `include` convention (`path.replaceAll('.', '_')`), so a
  *   join already created by `FetchUtils.addIncludedEntities` is REUSED, not

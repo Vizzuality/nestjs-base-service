@@ -80,7 +80,7 @@ export type BaseServiceOptions = {
   serializer?: { type?: string; adapter?: JsonApiSerializerAdapter };
 };
 /**
- * Base service class for NestJS projects.
+ * Base service class for NestJS applications.
  *
  * Provides lifecycle actions for getOne, getMany, create, update and delete.
  */
@@ -319,12 +319,33 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     if (values.length) {
       // Route the (possibly nested) key through the resolver: it grammar-checks
       // the path and joins the relation chain for a to-one nested path. A param
-      // name cannot contain dots, so derive a safe key from the path.
+      // name cannot contain dots, so derive a safe key from the path — and make
+      // it unique, so a dotted path (`photo.title` → `photo_title`) can never
+      // collide with a literal `photo_title` column and clobber its bound value.
       const columnRef = resolveColumnRef(query, this.alias, filterKey);
-      const paramKey = `${filterKey.replaceAll('.', '_')}Values`;
+      const paramKey = this._uniqueParamName(query, `${filterKey.replaceAll('.', '_')}Values`);
       query.andWhere(`${columnRef} IN (:...${paramKey})`, { [paramKey]: values });
     }
     return query;
+  }
+
+  /**
+   * Derive a query-parameter name that is not already bound on this query, so two
+   * filter/search keys that normalise to the same base (e.g. the relation path
+   * `photo.title` and a literal `photo_title` column) get distinct placeholders
+   * instead of the second silently overwriting the first's bound value.
+   */
+  protected _uniqueParamName(query: SelectQueryBuilder<Entity>, base: string): string {
+    const existing = query.expressionMap.parameters ?? {};
+    if (!(base in existing)) {
+      return base;
+    }
+    let index = 1;
+    let candidate = `${base}_${index}`;
+    while (candidate in existing) {
+      candidate = `${base}_${++index}`;
+    }
+    return candidate;
   }
 
   /**
@@ -366,7 +387,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       // Same nested-path handling as filters: resolve/join the column, and derive
       // a dot-free param key.
       const columnRef = resolveColumnRef(query, this.alias, searchKey);
-      const paramKey = `${searchKey.replaceAll('.', '_')}Search`;
+      const paramKey = this._uniqueParamName(query, `${searchKey.replaceAll('.', '_')}Search`);
       query.andWhere(`${columnRef} ILIKE :${paramKey}`, { [paramKey]: `%${searchTerm}%` });
     }
     return query;
@@ -475,15 +496,27 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return spec;
   }
 
-  /** Build the JSON:API collection pagination `meta` for a result set. */
+  /**
+   * Build the JSON:API collection pagination `meta` for a result set.
+   *
+   * When pagination is disabled, every matching row is returned in one "page", so
+   * the meta reflects that (`page: 1`, `size: totalItems`) rather than the default
+   * page size, which would otherwise contradict `data.length`. A non-positive or
+   * missing page/size falls back to the configured defaults.
+   */
   protected buildPaginationMeta(
     totalItems: number,
     fetchSpecification: FetchSpecification,
   ): JsonApiPaginationMeta {
+    if (fetchSpecification.disablePagination) {
+      return { totalItems, page: 1, size: totalItems };
+    }
+    const pageNumber = fetchSpecification.pageNumber;
+    const pageSize = fetchSpecification.pageSize;
     return {
       totalItems,
-      page: fetchSpecification.pageNumber ?? DEFAULT_PAGINATION.pageNumber ?? 1,
-      size: fetchSpecification.pageSize ?? DEFAULT_PAGINATION.pageSize ?? 25,
+      page: pageNumber && pageNumber > 0 ? pageNumber : (DEFAULT_PAGINATION.pageNumber ?? 1),
+      size: pageSize && pageSize > 0 ? pageSize : (DEFAULT_PAGINATION.pageSize ?? 25),
     };
   }
 

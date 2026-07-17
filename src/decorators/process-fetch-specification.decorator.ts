@@ -1,4 +1,4 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { BadRequestException, createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { pickBy } from '../utils/object.utils';
 import { FetchSpecification } from '../types/fetch-specification.interface';
 import { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
@@ -162,7 +162,7 @@ export const ProcessFetchSpecification = createParamDecorator(
         if (processFetchSpecificationArgs.allowedFilters.includes(key)) {
           return true;
         } else {
-          throw new Error(`Invalid filter key: ${key}`);
+          throw new BadRequestException(`Invalid filter key: ${key}`);
         }
       });
 
@@ -176,7 +176,7 @@ export const ProcessFetchSpecification = createParamDecorator(
         // strip the sort direction sigil before checking the allow-list
         const column = entry.replace(/^[+-]/, '');
         if (!processFetchSpecificationArgs.allowedSort.includes(column)) {
-          throw new Error(`Invalid sort key: ${column}`);
+          throw new BadRequestException(`Invalid sort key: ${column}`);
         }
       });
     }
@@ -186,7 +186,7 @@ export const ProcessFetchSpecification = createParamDecorator(
         if (processFetchSpecificationArgs.allowedSearch.includes(key)) {
           return true;
         } else {
-          throw new Error(`Invalid search key: ${key}`);
+          throw new BadRequestException(`Invalid search key: ${key}`);
         }
       });
 

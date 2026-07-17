@@ -28,9 +28,9 @@ function makeQueryBuilder(result: [unknown[], number]) {
 
 function makeRepository(qb: Record<string, unknown>) {
   return {
-    metadata: { name: 'Project' },
+    metadata: { name: 'Photo' },
     createQueryBuilder: vi.fn(() => qb),
-  } as unknown as Repository<{ id: string; name: string }>;
+  } as unknown as Repository<{ id: string; title: string }>;
 }
 
 // A trivial serializer adapter: shapes a JSON:API-ish document and records how
@@ -53,55 +53,55 @@ function makeAdapter(): JsonApiSerializerAdapter & { calls: unknown[] } {
   };
 }
 
-type Project = { id: string; name: string };
+type Photo = { id: string; title: string };
 
-class ProjectService extends BaseService<Project, Partial<Project>, Partial<Project>, unknown> {
-  constructor(repository: Repository<Project>, adapter: JsonApiSerializerAdapter) {
-    super(repository, 'project', {
+class PhotoService extends BaseService<Photo, Partial<Photo>, Partial<Photo>, unknown> {
+  constructor(repository: Repository<Photo>, adapter: JsonApiSerializerAdapter) {
+    super(repository, 'photo', {
       logging: { muteAll: true },
-      serializer: { type: 'projects', adapter },
+      serializer: { type: 'photos', adapter },
     });
   }
   // Expose protected helpers for direct assertions.
-  publicToFetchSpecification(query: Parameters<ProjectService['toFetchSpecification']>[0]) {
+  publicToFetchSpecification(query: Parameters<PhotoService['toFetchSpecification']>[0]) {
     return this.toFetchSpecification(query);
   }
-  publicBuildPaginationMeta(...args: Parameters<ProjectService['buildPaginationMeta']>) {
+  publicBuildPaginationMeta(...args: Parameters<PhotoService['buildPaginationMeta']>) {
     return this.buildPaginationMeta(...args);
   }
 }
 
-describe('BaseService — folded ApiBaseService capabilities', () => {
+describe('BaseService — folded pagination/serialization capabilities', () => {
   let qb: Record<string, unknown>;
   let adapter: ReturnType<typeof makeAdapter>;
-  let service: ProjectService;
+  let service: PhotoService;
 
   beforeEach(() => {
-    qb = makeQueryBuilder([[{ id: 'p1', name: 'Alpha' }], 3]);
+    qb = makeQueryBuilder([[{ id: 'ph1', title: 'Alpha' }], 3]);
     adapter = makeAdapter();
-    service = new ProjectService(makeRepository(qb), adapter);
+    service = new PhotoService(makeRepository(qb), adapter);
   });
 
-  describe('toFetchSpecification (B.5 — schema-direct page mapping)', () => {
+  describe('toFetchSpecification (schema-direct page mapping)', () => {
     it('maps nested page[number]/page[size] onto flat pageNumber/pageSize', () => {
       const spec = service.publicToFetchSpecification({
         page: { number: 2, size: 10 },
-        sort: ['name'],
+        sort: ['title'],
       });
       expect(spec.pageNumber).toBe(2);
       expect(spec.pageSize).toBe(10);
       expect(spec).not.toHaveProperty('page');
-      expect(spec.sort).toEqual(['name']);
+      expect(spec.sort).toEqual(['title']);
     });
 
     it('forces the id column into a sparse fieldset (ensureIdField)', () => {
-      const spec = service.publicToFetchSpecification({ fields: ['name'] });
-      expect(spec.fields).toEqual(['id', 'name']);
+      const spec = service.publicToFetchSpecification({ fields: ['title'] });
+      expect(spec.fields).toEqual(['id', 'title']);
     });
 
     it('leaves a fieldset that already has the id untouched', () => {
-      const spec = service.publicToFetchSpecification({ fields: ['id', 'name'] });
-      expect(spec.fields).toEqual(['id', 'name']);
+      const spec = service.publicToFetchSpecification({ fields: ['id', 'title'] });
+      expect(spec.fields).toEqual(['id', 'title']);
     });
   });
 
@@ -121,11 +121,25 @@ describe('BaseService — folded ApiBaseService capabilities', () => {
         size: 25,
       });
     });
+
+    it('coerces a non-positive page/size to the defaults (no negative skip)', () => {
+      expect(service.publicBuildPaginationMeta(3, { pageNumber: 0, pageSize: 0 })).toEqual({
+        totalItems: 3,
+        page: 1,
+        size: 25,
+      });
+    });
+
+    it('reflects disablePagination as a single full page (size = totalItems)', () => {
+      expect(
+        service.publicBuildPaginationMeta(42, { disablePagination: true, pageSize: 10 }),
+      ).toEqual({ totalItems: 42, page: 1, size: 42 });
+    });
   });
 
   describe('findAllPaginated', () => {
     it('maps the wire query, runs findAll, and serializes with pagination meta', async () => {
-      const doc = await service.findAllPaginated({ page: { number: 1, size: 2 }, sort: ['name'] });
+      const doc = await service.findAllPaginated({ page: { number: 1, size: 2 }, sort: ['title'] });
 
       // pagination applied to the query
       expect(qb.take).toHaveBeenCalledWith(2);
@@ -134,24 +148,24 @@ describe('BaseService — folded ApiBaseService capabilities', () => {
       // serializer was handed the resolved type, the rows and the meta
       expect(adapter.calls).toEqual([
         {
-          type: 'projects',
-          data: [{ id: 'p1', name: 'Alpha' }],
+          type: 'photos',
+          data: [{ id: 'ph1', title: 'Alpha' }],
           meta: { totalItems: 3, page: 1, size: 2 },
         },
       ]);
 
       // and the collection document carries data + meta
       expect(doc.meta).toEqual({ totalItems: 3, page: 1, size: 2 });
-      expect(doc.data).toEqual([{ type: 'projects', id: 'p1', attributes: { name: 'Alpha' } }]);
+      expect(doc.data).toEqual([{ type: 'photos', id: 'ph1', attributes: { title: 'Alpha' } }]);
     });
   });
 
   describe('pluggable serializer', () => {
     it('serialize() uses the injected adapter instead of jsona', async () => {
-      const doc = await service.serialize({ id: 'p1', name: 'Alpha' }, { totalItems: 1 });
+      const doc = await service.serialize({ id: 'ph1', title: 'Alpha' }, { totalItems: 1 });
       expect(adapter.calls).toHaveLength(1);
       expect(doc).toMatchObject({
-        data: [{ type: 'projects', id: 'p1', attributes: { name: 'Alpha' } }],
+        data: [{ type: 'photos', id: 'ph1', attributes: { title: 'Alpha' } }],
         meta: { totalItems: 1 },
       });
     });

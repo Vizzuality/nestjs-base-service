@@ -36,6 +36,29 @@ leak-guard landed in `rc.3`.)
 - `@nestjs/core` is now a peer dependency (for the `APP_PIPE` wiring); every
   NestJS app already provides it.
 
+### Fixed (QA hardening across rc.3–rc.5)
+
+- **Filter/search param-key collision.** A nested path (`photo.title` →
+  `photo_title`) and a literal `photo_title` column derived the same bound
+  parameter, so one clause silently overwrote the other's value. Param names are
+  now made unique per query.
+- **`findAllPaginated` + `disablePagination`** now reports honest meta
+  (`page: 1`, `size: totalItems`) instead of the default page size while returning
+  all rows.
+- **`buildPaginationMeta`** coerces a non-positive `pageNumber`/`pageSize` to the
+  defaults (no negative `skip`).
+- **`BaseServiceModule.forRoot`** throws on an unknown `validation` strategy
+  instead of silently wiring nothing.
+- **`disablePagination` schema parsing** is now case-insensitive
+  (`"TRUE"`/`"False"`), matching the decorator.
+- **Invalid `filter`/`search`/`sort` keys** now raise a `400`
+  (`BadRequestException`) rather than an unhandled `500`.
+
+### Docs
+
+- Reworked the README with a schema-builder deep-dive and a **contract-first**
+  guide (oRPC and ts-rest, server + client). All examples use a generic domain.
+
 ## 1.0.0-rc.4
 
 2026-07-17
@@ -45,9 +68,9 @@ Adds nested-relation (to-one) sort / filter / search, building on the rc.3 base.
 ### Added
 
 - **Nested to-one sort / filter / search.** `sort`, `filter` and `search` now
-  accept dot-paths into to-one relations (e.g. `sort=project.name`,
-  `filter[project.name]=Acorn`, `search[project.name]=aco`, two-level
-  `project.organisation.name`). A shared resolver (`resolveColumnRef`) walks
+  accept dot-paths into to-one relations (e.g. `sort=author.name`,
+  `filter[author.name]=Ansel`, `search[author.name]=ans`, two-level
+  `author.studio.name`). A shared resolver (`resolveColumnRef`) walks
   TypeORM relation metadata, joins each segment with the **same alias convention
   as `include`** (`a.b` → `a_b`) so an existing `include` join is reused, and uses
   `leftJoin` (not select) so nested criteria don't hydrate the relation or clash
@@ -80,9 +103,9 @@ Adds nested-relation (to-one) sort / filter / search, building on the rc.3 base.
 
 2026-07-17
 
-Absorbs what the Acorn integration prototyped and fixes the bugs its integration
-tests surfaced. Adds a third, framework-free package and folds the app-side
-`ApiBaseService` capabilities into the library.
+Absorbs what a downstream integration prototyped and fixes the bugs its
+integration tests surfaced. Adds a third, framework-free package and folds the
+app-side `ApiBaseService` capabilities into the library.
 
 ### Added
 

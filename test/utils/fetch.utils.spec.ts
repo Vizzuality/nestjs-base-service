@@ -54,11 +54,11 @@ describe('FetchUtils', () => {
       // Simulate an `include` having added a joined relation to the SELECT list.
       (qb as unknown as { expressionMap: { selects: unknown[] } }).expressionMap.selects = [
         { selection: 'item', aliasName: undefined },
-        { selection: 'organisation', aliasName: undefined },
+        { selection: 'author', aliasName: undefined },
       ];
       FetchUtils.addFields(qb, 'item', { fields: ['name'] });
       expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name']);
-      expect(qb.addSelect).toHaveBeenCalledWith('organisation', undefined);
+      expect(qb.addSelect).toHaveBeenCalledWith('author', undefined);
     });
 
     it('does not call select when no fields are given', () => {
