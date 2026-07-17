@@ -1,7 +1,7 @@
 {
-  "name": "@vizzuality/nestjs-base-service-types",
+  "name": "@vizzuality/base-service-schema",
   "version": "1.0.0-rc.5",
-  "description": "Type-only contract for nestjs-base-service (FetchSpecification, InfoDTO, ProcessFetchSpecificationArguments).",
+  "description": "Framework-free, Zod-based fetch-query schema builder and JSON:API schemas for nestjs-base-service. Zero path to @nestjs/* or typeorm — safe in a client bundle.",
   "license": "MIT",
   "files": [
     "dist",
@@ -24,16 +24,12 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./query": {
-      "import": {
-        "types": "./dist/query.d.ts",
-        "default": "./dist/query.js"
-      },
-      "require": {
-        "types": "./dist/query.d.cts",
-        "default": "./dist/query.cjs"
-      }
-    },
     "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@vizzuality/nestjs-base-service-types": "1.0.0-rc.5"
+  },
+  "peerDependencies": {
+    "zod": "^3.25.0"
   }
 }

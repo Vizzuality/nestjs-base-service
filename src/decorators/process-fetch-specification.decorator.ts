@@ -14,6 +14,28 @@ import {
 export type { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
 
 /**
+ * Normalise a multi-value query param to a `string[]`, tolerating both wire
+ * conventions the ecosystem uses:
+ *
+ * - comma-separated single param — `?sort=a,-b` → `['a', '-b']`
+ * - repeated/bracketed array — `?sort[]=a&sort[]=b` → `['a', 'b']` (a
+ *   bracket-expanding query parser, e.g. Express `qs`, hands these to us already
+ *   as an array)
+ *
+ * Empty segments are dropped. Returns `undefined` for absent params so callers
+ * can leave the corresponding fetch-spec key unset.
+ */
+function toStringArray(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).filter((item) => item.length > 0);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').filter((item) => item.length > 0);
+  }
+  return undefined;
+}
+
+/**
  * Parameter decorator: extracts `fetchSpecification` from request object.
  */
 export const ProcessFetchSpecification = createParamDecorator(
@@ -56,8 +78,8 @@ export const ProcessFetchSpecification = createParamDecorator(
     fetchSpecification.pageNumber =
       typeof pageNumber === 'number' && pageNumber > 0 ? pageNumber : undefined;
 
-    fetchSpecification.fields = request?.query?.fields?.split(',');
-    fetchSpecification.omitFields = request?.query?.omitFields?.split(',');
+    fetchSpecification.fields = toStringArray(request?.query?.fields);
+    fetchSpecification.omitFields = toStringArray(request?.query?.omitFields);
     /**
      * @todo Most entities will use `id` as unique id, but since some do not,
      * this will not work. We need to make this configurable in this middleware,
@@ -71,9 +93,9 @@ export const ProcessFetchSpecification = createParamDecorator(
      * @todo Possibly reinstate whitelisting of allowed included entities, e.g.
      * (...).filter(inc => prePagination.allowIncludes.indexOf(inc) >= 0);
      */
-    fetchSpecification.include = request?.query?.include?.split(',');
+    fetchSpecification.include = toStringArray(request?.query?.include);
 
-    fetchSpecification.sort = request?.query?.sort?.split(',');
+    fetchSpecification.sort = toStringArray(request?.query?.sort);
 
     /**
      * @debt Correctly parse filter values that contain url-encoded comma (`,`)
@@ -83,8 +105,8 @@ export const ProcessFetchSpecification = createParamDecorator(
      * @debt Also add proper typing. This should start at Object.entries<T>
      */
     fetchSpecification.filter = request?.query?.filter
-      ? Object.entries<string>(request?.query?.filter).reduce((acc, current) => {
-          acc[current[0]] = current[1]?.split(',').filter((i) => i);
+      ? Object.entries<unknown>(request?.query?.filter).reduce((acc, [key, value]) => {
+          acc[key] = toStringArray(value) ?? [];
           return acc;
         }, {})
       : undefined;
@@ -97,7 +119,11 @@ export const ProcessFetchSpecification = createParamDecorator(
      */
     fetchSpecification.search = request?.query?.search
       ? Object.entries<unknown>(request?.query?.search).reduce((acc, [key, value]) => {
-          const term = value == null ? '' : String(value);
+          // Search terms are single literals; if a bracket-array parser hands us
+          // an array (`search[key][]=a&search[key][]=b`) take the last value,
+          // matching `qs`'s last-wins semantics for scalar params.
+          const raw = Array.isArray(value) ? value[value.length - 1] : value;
+          const term = raw == null ? '' : String(raw);
           if (term.length > 0) {
             acc[key] = term;
           }
@@ -143,6 +169,16 @@ export const ProcessFetchSpecification = createParamDecorator(
       if (Object.keys(result).length > 0) {
         request.fetchSpecification.filter = result;
       }
+    }
+
+    if (processFetchSpecificationArgs?.allowedSort && request.fetchSpecification.sort) {
+      request.fetchSpecification.sort.forEach((entry: string) => {
+        // strip the sort direction sigil before checking the allow-list
+        const column = entry.replace(/^[+-]/, '');
+        if (!processFetchSpecificationArgs.allowedSort.includes(column)) {
+          throw new Error(`Invalid sort key: ${column}`);
+        }
+      });
     }
 
     if (processFetchSpecificationArgs?.allowedSearch) {

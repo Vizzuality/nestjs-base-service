@@ -11,6 +11,8 @@ function makeQueryBuilder() {
   const qb: Record<string, ReturnType<typeof vi.fn>> = {};
   for (const method of [
     'select',
+    'addSelect',
+    'leftJoin',
     'leftJoinAndSelect',
     'addOrderBy',
     'take',
@@ -21,15 +23,42 @@ function makeQueryBuilder() {
   ]) {
     qb[method] = vi.fn(() => qb);
   }
+  // Minimal stand-in for the internal expression map `addFields` inspects to
+  // preserve joined-relation selections when narrowing a sparse root fieldset.
+  (qb as Record<string, unknown>).expressionMap = { selects: [], aliases: [] };
   return qb as unknown as SelectQueryBuilder<unknown> & Record<string, ReturnType<typeof vi.fn>>;
 }
 
 describe('FetchUtils', () => {
   describe('addFields', () => {
-    it('selects only the requested fields, prefixed with the alias', () => {
+    it('selects the requested fields (with the id column forced in), prefixed with the alias', () => {
       const qb = makeQueryBuilder();
       FetchUtils.addFields(qb, 'item', { fields: ['name', 'status'] });
-      expect(qb.select).toHaveBeenCalledWith(['item.name', 'item.status']);
+      expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name', 'item.status']);
+    });
+
+    it('does not duplicate the id column when it is already requested', () => {
+      const qb = makeQueryBuilder();
+      FetchUtils.addFields(qb, 'item', { fields: ['id', 'name'] });
+      expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name']);
+    });
+
+    it('honours a custom idProperty', () => {
+      const qb = makeQueryBuilder();
+      FetchUtils.addFields(qb, 'item', { fields: ['name'] }, 'uuid');
+      expect(qb.select).toHaveBeenCalledWith(['item.uuid', 'item.name']);
+    });
+
+    it('re-adds joined-relation selections so a sparse fieldset keeps includes', () => {
+      const qb = makeQueryBuilder();
+      // Simulate an `include` having added a joined relation to the SELECT list.
+      (qb as unknown as { expressionMap: { selects: unknown[] } }).expressionMap.selects = [
+        { selection: 'item', aliasName: undefined },
+        { selection: 'organisation', aliasName: undefined },
+      ];
+      FetchUtils.addFields(qb, 'item', { fields: ['name'] });
+      expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name']);
+      expect(qb.addSelect).toHaveBeenCalledWith('organisation', undefined);
     });
 
     it('does not call select when no fields are given', () => {
@@ -126,7 +155,7 @@ describe('FetchUtils', () => {
     it('never paginates a single-entity query', () => {
       const qb = makeQueryBuilder();
       FetchUtils.processSingleEntityFetchSpecification(qb, 'item', { fields: ['name'] });
-      expect(qb.select).toHaveBeenCalledWith(['item.name']);
+      expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name']);
       expect(qb.take).not.toHaveBeenCalled();
       expect(qb.skip).not.toHaveBeenCalled();
     });

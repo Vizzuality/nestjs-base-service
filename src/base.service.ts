@@ -5,12 +5,21 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { IPaginationOptions, paginate, Pagination } from 'nestjs-typeorm-paginate';
 
 import { FetchSpecification } from './types/fetch-specification.interface';
+import type { WireFetchQuery } from './types/wire-fetch-query';
+import type { JsonApiCollection, JsonApiPaginationMeta } from './types/json-api';
+import { DEFAULT_PAGINATION } from './config/default.config';
 import { FetchUtils } from './utils/fetch.utils';
+import { resolveColumnRef } from './utils/relation-path.util';
 import { omit, pick } from './utils/object.utils';
 import { EntityPropertiesMapper } from './serialization/entity-properties-mapper';
 
-/** A single JSON:API resource object. */
-export interface JsonApiResource {
+/**
+ * A single JSON:API resource object, as produced by the built-in (`jsona`)
+ * serializer. For the strongly-typed, generic JSON:API document shapes used by
+ * `findAllPaginated()` and by clients, see the types companion package
+ * (`JsonApiResource<TType, TData>`, `JsonApiCollection<TType, TData>`, …).
+ */
+export interface JsonApiResourceLike {
   type: string;
   id?: string | number;
   attributes?: Record<string, unknown>;
@@ -21,9 +30,25 @@ export interface JsonApiResource {
 
 /** A serialized JSON:API document, as produced by `BaseService.serialize()`. */
 export interface JsonApiDocument {
-  data?: JsonApiResource | JsonApiResource[];
-  included?: JsonApiResource[];
+  data?: JsonApiResourceLike | JsonApiResourceLike[];
+  included?: JsonApiResourceLike[];
   meta?: Record<string, unknown>;
+}
+
+/**
+ * A pluggable JSON:API serializer. Implement this to swap the built-in `jsona`
+ * serializer for another (e.g. `ts-japi`) and inject it via
+ * `serviceOptions.serializer.adapter`, keeping the library serializer-agnostic.
+ *
+ * Called with the resolved resource `type`, one or many entities, and optional
+ * top-level `meta`; returns a JSON:API document.
+ */
+export interface JsonApiSerializerAdapter {
+  serialize(
+    type: string,
+    data: unknown,
+    meta?: Record<string, unknown>,
+  ): unknown | Promise<unknown>;
 }
 
 class NoOpLogger implements LoggerService {
@@ -43,11 +68,16 @@ export type BaseServiceOptions = {
   idProperty?: string;
   logging?: { muteAll?: boolean };
   /**
-   * Options for `serialize()`. `type` sets the JSON:API resource `type` for
-   * this service's root entity; when omitted it is resolved from the entity's
-   * TypeORM metadata name, falling back to the service alias.
+   * Options for `serialize()` / `findAllPaginated()`.
+   *
+   * - `type` sets the JSON:API resource `type` for this service's root entity;
+   *   when omitted it is resolved from the entity's TypeORM metadata name,
+   *   falling back to the service alias.
+   * - `adapter` injects a pluggable serializer (e.g. `ts-japi`). When omitted,
+   *   the built-in `jsona` serializer is used (which requires the optional
+   *   `jsona` peer dependency).
    */
-  serializer?: { type?: string };
+  serializer?: { type?: string; adapter?: JsonApiSerializerAdapter };
 };
 /**
  * Base service class for NestJS projects.
@@ -166,6 +196,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       queryWithSearch,
       this.alias,
       fetchSpecification,
+      this.options.idProperty ?? 'id',
     );
     this.logger.debug(queryWithFetchSpecificationApplied.getQueryAndParameters());
     return queryWithFetchSpecificationApplied;
@@ -272,10 +303,26 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     query: SelectQueryBuilder<Entity>,
     [filterKey, filterValues]: [string, unknown],
   ): SelectQueryBuilder<Entity> {
-    if (Array.isArray(filterValues) && filterValues.length) {
-      query.andWhere(`${this.alias}.${filterKey} IN (:...${filterKey}Values)`, {
-        [`${filterKey}Values`]: filterValues,
-      });
+    /**
+     * Filter values are normally arrays (`?filter[key][]=x`), but a client may
+     * send a single scalar (`?filter[key]=x`). Coerce a lone scalar to a
+     * one-element array so a single-value filter is applied rather than being a
+     * silent no-op; `null`/`undefined`/`''` are dropped so we never emit an
+     * empty `IN ()`.
+     */
+    const values = Array.isArray(filterValues)
+      ? filterValues
+      : filterValues === null || filterValues === undefined || filterValues === ''
+        ? []
+        : [filterValues];
+
+    if (values.length) {
+      // Route the (possibly nested) key through the resolver: it grammar-checks
+      // the path and joins the relation chain for a to-one nested path. A param
+      // name cannot contain dots, so derive a safe key from the path.
+      const columnRef = resolveColumnRef(query, this.alias, filterKey);
+      const paramKey = `${filterKey.replaceAll('.', '_')}Values`;
+      query.andWhere(`${columnRef} IN (:...${paramKey})`, { [paramKey]: values });
     }
     return query;
   }
@@ -316,9 +363,11 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     [searchKey, searchTerm]: [string, unknown],
   ): SelectQueryBuilder<Entity> {
     if (typeof searchTerm === 'string' && searchTerm.length) {
-      query.andWhere(`${this.alias}.${searchKey} ILIKE :${searchKey}Search`, {
-        [`${searchKey}Search`]: `%${searchTerm}%`,
-      });
+      // Same nested-path handling as filters: resolve/join the column, and derive
+      // a dot-free param key.
+      const columnRef = resolveColumnRef(query, this.alias, searchKey);
+      const paramKey = `${searchKey.replaceAll('.', '_')}Search`;
+      query.andWhere(`${columnRef} ILIKE :${paramKey}`, { [paramKey]: `%${searchTerm}%` });
     }
     return query;
   }
@@ -333,34 +382,54 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
 
   // ↓↓↓ serialize
   /**
+   * Resolve the JSON:API resource `type` for this service's root entity: the
+   * configured `serializer.type`, else the entity's TypeORM metadata name, else
+   * the service alias.
+   */
+  protected resolveResourceType(): string {
+    return this.options.serializer?.type ?? this.repository.metadata?.name ?? this.alias;
+  }
+
+  /**
    * Serialize one or more entities into a JSON:API document.
    *
-   * The resource `type`, `id`, attributes and relationships are derived from
-   * the entity's TypeORM metadata. Pass `includeNames` (relation property
-   * names, dot-notation for nested) to embed related resources in the
-   * `included` section; pass `meta` to attach a top-level `meta` member.
+   * By default the resource `type`, `id`, attributes and relationships are
+   * derived from the entity's TypeORM metadata via the built-in `jsona`
+   * serializer (an optional peer dependency, imported lazily). Pass
+   * `includeNames` (relation property names, dot-notation for nested) to embed
+   * related resources in the `included` section; pass `meta` to attach a
+   * top-level `meta` member.
    *
-   * Requires the optional peer dependency `jsona`, which is imported lazily so
-   * that consumers who do their own serialization need not install it.
+   * When a pluggable serializer is configured via
+   * `serviceOptions.serializer.adapter`, it is used instead — the library then
+   * needs neither `jsona` nor any knowledge of the serialization library. The
+   * adapter receives the resolved resource `type`, the data and the `meta`
+   * (`includeNames` is a `jsona`-specific concern and is ignored).
    */
   async serialize(
     data: Partial<Entity> | Partial<Entity>[],
     meta?: Record<string, unknown>,
     includeNames?: string[],
   ): Promise<JsonApiDocument> {
+    const type = this.resolveResourceType();
+
+    const adapter = this.options.serializer?.adapter;
+    if (adapter) {
+      const document = await adapter.serialize(type, data, meta);
+      return document as JsonApiDocument;
+    }
+
     const jsonaModule = await import('jsona').catch(() => {
       throw new Error(
-        "BaseService.serialize() requires the optional peer dependency 'jsona'. Install it with `pnpm add jsona`.",
+        "BaseService.serialize() requires either a configured serializer adapter (serviceOptions.serializer.adapter) or the optional peer dependency 'jsona'. Install it with `pnpm add jsona`.",
       );
     });
-    const fallbackType =
-      this.options.serializer?.type ?? this.repository.metadata?.name ?? this.alias;
     const formatter = new jsonaModule.Jsona({
       // EntityPropertiesMapper structurally implements jsona's
       // IModelPropertiesMapper without importing jsona (see its docs).
       modelPropertiesMapper: new EntityPropertiesMapper(
         this.repository.manager?.connection,
-        fallbackType,
+        type,
         this.options.idProperty ?? 'id',
       ) as never,
     });
@@ -371,6 +440,75 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
     return meta ? { ...document, meta } : document;
   }
   // ↑↑↑ serialize
+
+  // ↓↓↓ paginated JSON:API list (folded-in ApiBaseService capabilities)
+  /**
+   * Normalise an over-the-wire fetch query into a `FetchSpecification`: map the
+   * nested JSON:API `page` (`page[number]`/`page[size]`) onto the flat
+   * `pageNumber`/`pageSize` the service consumes, and guarantee the id column is
+   * present in any sparse fieldset (see `ensureIdField`).
+   *
+   * This is the schema-direct counterpart of what the `ProcessFetchSpecification`
+   * decorator does for the `req.query` path, so consumers validating queries with
+   * a Zod DTO need not re-implement the page mapping.
+   */
+  protected toFetchSpecification(query: WireFetchQuery): FetchSpecification {
+    const { page, ...rest } = query;
+    return this.ensureIdField({
+      ...rest,
+      pageNumber: page?.number,
+      pageSize: page?.size,
+    });
+  }
+
+  /**
+   * Guarantee the configured id column is part of any sparse `fields` set: a
+   * `SELECT` that omits the id yields rows with no id, which breaks JSON:API
+   * serialization. (The query builder enforces the same at the SQL level; this
+   * keeps the returned spec honest too.)
+   */
+  protected ensureIdField(spec: FetchSpecification): FetchSpecification {
+    const idProperty = this.options.idProperty ?? 'id';
+    if (spec.fields?.length && !spec.fields.includes(idProperty)) {
+      return { ...spec, fields: [idProperty, ...spec.fields] };
+    }
+    return spec;
+  }
+
+  /** Build the JSON:API collection pagination `meta` for a result set. */
+  protected buildPaginationMeta(
+    totalItems: number,
+    fetchSpecification: FetchSpecification,
+  ): JsonApiPaginationMeta {
+    return {
+      totalItems,
+      page: fetchSpecification.pageNumber ?? DEFAULT_PAGINATION.pageNumber ?? 1,
+      size: fetchSpecification.pageSize ?? DEFAULT_PAGINATION.pageSize ?? 25,
+    };
+  }
+
+  /**
+   * List entities and return them as a JSON:API collection document with
+   * pagination `meta`, in one call: normalise the wire query, run `findAll`,
+   * build the meta, and serialize (via the configured adapter, or `jsona`).
+   *
+   * The resource `type` is resolved from `serviceOptions.serializer.type` (or
+   * the entity metadata / alias). Requires a serializer — either an injected
+   * `adapter` or the optional `jsona` peer.
+   */
+  async findAllPaginated(
+    query: WireFetchQuery,
+    info?: Info,
+  ): Promise<JsonApiCollection<string, Entity & { id: string }> & { meta: JsonApiPaginationMeta }> {
+    const fetchSpecification = this.toFetchSpecification(query);
+    const [data, totalItems] = await this.findAll(fetchSpecification, info);
+    const meta = this.buildPaginationMeta(totalItems, fetchSpecification);
+    const document = await this.serialize(data, meta, fetchSpecification.include);
+    return document as unknown as JsonApiCollection<string, Entity & { id: string }> & {
+      meta: JsonApiPaginationMeta;
+    };
+  }
+  // ↑↑↑ paginated JSON:API list
 
   // ↓↓↓ getById
   /**
@@ -397,6 +535,7 @@ export abstract class BaseService<Entity extends object, CreateModel, UpdateMode
       extendedQuery,
       this.alias,
       pick(fetchSpecification, ['include', 'fields', 'omitFields', 'filter']),
+      this.options.idProperty ?? 'id',
     );
     queryWithFetchSpecificationApplied
       .andWhere(`${this.alias}.${this.options.idProperty} = :id`)

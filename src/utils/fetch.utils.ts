@@ -1,6 +1,7 @@
 import { SelectQueryBuilder } from 'typeorm';
 import { FetchSpecification } from '../types/fetch-specification.interface';
 import { DEFAULT_PAGINATION } from '../config/default.config';
+import { resolveColumnRef } from './relation-path.util';
 
 type SortDirection = 'ASC' | 'DESC';
 
@@ -32,12 +33,21 @@ export class FetchUtils<T> {
       disablePagination: DEFAULT_PAGINATION.disablePagination,
       sort: undefined,
     },
+    idProperty: string = 'id',
   ) {
     const queryWithIncludedEntities = this.addIncludedEntities(query, aliasTable, { include });
-    const queryWithSparseFieldsets = this.addFields(queryWithIncludedEntities, aliasTable, {
-      fields,
-    });
-    const queryWithSorting = this.addSorting(queryWithSparseFieldsets, aliasTable, { sort });
+    const queryWithSparseFieldsets = this.addFields(
+      queryWithIncludedEntities,
+      aliasTable,
+      { fields },
+      idProperty,
+    );
+    const queryWithSorting = this.addSorting(
+      queryWithSparseFieldsets,
+      aliasTable,
+      { sort },
+      !disablePagination,
+    );
     const queryWithPagination = disablePagination
       ? queryWithSorting
       : this.addPagination(queryWithSorting, aliasTable, {
@@ -65,16 +75,22 @@ export class FetchUtils<T> {
       include: undefined,
       filter: undefined,
     },
+    idProperty: string = 'id',
   ) {
-    return this.processFetchSpecification(query, aliasTable, {
-      fields,
-      omitFields,
-      include,
-      filter,
-      disablePagination: true,
-      pageNumber: undefined,
-      pageSize: undefined,
-    });
+    return this.processFetchSpecification(
+      query,
+      aliasTable,
+      {
+        fields,
+        omitFields,
+        include,
+        filter,
+        disablePagination: true,
+        pageNumber: undefined,
+        pageSize: undefined,
+      },
+      idProperty,
+    );
   }
 
   static addFields<T>(
@@ -83,6 +99,7 @@ export class FetchUtils<T> {
     { fields = undefined }: Pick<FetchSpecification, 'fields'> = {
       fields: undefined,
     },
+    idProperty: string = 'id',
   ) {
     /**
      * Select fields as per fetch specification: if any fields are listed in the
@@ -102,7 +119,29 @@ export class FetchUtils<T> {
      * tradeoff.
      */
     if (fields?.length > 0) {
-      query.select(fields.map((f) => `${aliasTable}.${f}`));
+      /**
+       * Always select the id column. A sparse `SELECT` that omits it yields rows
+       * with no id, which breaks JSON:API serialization; forcing it in here
+       * means consumers need not repeat `id` in every `fields` list.
+       */
+      const columns = fields.includes(idProperty) ? fields : [idProperty, ...fields];
+
+      /**
+       * A sparse root fieldset must not drop columns contributed by joined
+       * relations (an `include`, or a custom `.addSelect()` added in an
+       * `extendFindAllQuery` override). `query.select()` resets the entire
+       * SELECT list, so capture every selection that does NOT belong to the root
+       * alias first, narrow the root columns, then re-add the captured ones —
+       * `fields` and `include` thus compose instead of the fields clobbering the
+       * join.
+       */
+      const preservedSelects = query.expressionMap.selects.filter(
+        (select) => select.selection !== aliasTable,
+      );
+      query.select(columns.map((f) => `${aliasTable}.${f}`));
+      for (const select of preservedSelects) {
+        query.addSelect(select.selection, select.aliasName);
+      }
     }
 
     return query;
@@ -154,18 +193,50 @@ export class FetchUtils<T> {
     { sort = undefined }: Pick<FetchSpecification, 'sort'> = {
       sort: undefined,
     },
+    applyPagination = false,
   ) {
     /**
-     * Apply sorting
+     * Apply sorting. The column is routed through `resolveColumnRef`, which
+     * grammar-checks the path and, for a nested to-one path (`rel.col`), joins
+     * the relation chain (reusing any join `include` already created) and returns
+     * the joined column reference. This also closes the previous raw-interpolation
+     * vector: an unvalidated sort column can no longer reach the ORDER BY.
      */
     if (sort) {
-      sort.map((s) => {
+      sort.forEach((s) => {
         // strip orderBy sigils ('+' or '-'), if present
         const sortByColumn = s.replace(/^[+-]/, '');
         // if the first character is '-', sort descending; otherwise, sort
         // ascending
         const sortDirection: SortDirection = s.match(/^-/) ? 'DESC' : 'ASC';
-        query.addOrderBy(`${aliasTable}.${sortByColumn}`, sortDirection);
+        const columnRef = resolveColumnRef(query, aliasTable, sortByColumn);
+
+        /**
+         * TypeORM's distinct-root pagination (the path taken by `take`/`skip`
+         * whenever a join is present) requires every ORDER BY column to also be
+         * in the SELECT, otherwise the generated distinct subquery references a
+         * column it never selected. So when we ARE paginating and the sort column
+         * lives on a JOINED relation (its ref is not on the root alias), add it to
+         * the SELECT. Without pagination we leave the SELECT untouched, so a
+         * nested sort does not hydrate the relation.
+         *
+         * Consequence: sorting by a nested relation column *with pagination*
+         * selects that column, so the relation appears partially in results — use
+         * `include` for that relation if you need it fully hydrated.
+         */
+        if (applyPagination && !columnRef.startsWith(`${aliasTable}.`)) {
+          const relationAlias = columnRef.slice(0, columnRef.lastIndexOf('.'));
+          // Skip if the relation (via `include`) or this exact column is already
+          // selected, otherwise we'd emit a duplicate/ambiguous SELECT column.
+          const alreadySelected = query.expressionMap.selects.some(
+            (select) => select.selection === relationAlias || select.selection === columnRef,
+          );
+          if (!alreadySelected) {
+            query.addSelect(columnRef);
+          }
+        }
+
+        query.addOrderBy(columnRef, sortDirection);
       });
     }
 

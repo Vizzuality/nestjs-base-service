@@ -20,6 +20,8 @@ function makeQueryBuilder(terminals: Partial<Record<string, unknown>> = {}) {
   const qb: Record<string, unknown> = {};
   for (const method of [
     'select',
+    'addSelect',
+    'leftJoin',
     'leftJoinAndSelect',
     'addOrderBy',
     'take',
@@ -32,6 +34,9 @@ function makeQueryBuilder(terminals: Partial<Record<string, unknown>> = {}) {
   ]) {
     qb[method] = vi.fn(() => qb);
   }
+  // Stand-in for the internal expression map `addFields` reads to preserve
+  // joined-relation selections when narrowing a sparse root fieldset.
+  qb.expressionMap = { selects: [], aliases: [] };
   qb.getQueryAndParameters = vi.fn(() => ['SQL', []]);
   qb.getManyAndCount = vi.fn(async () => terminals.getManyAndCount ?? [[], 0]);
   qb.getRawMany = vi.fn(async () => terminals.getRawMany ?? []);
@@ -89,6 +94,21 @@ describe('BaseService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('item.status IN (:...statusValues)', {
         statusValues: ['active', 'pending'],
       });
+    });
+
+    it('coerces a single scalar filter value to a one-element IN clause (not a no-op)', async () => {
+      await service.findAll({ filter: { status: 'active' } });
+      expect(qb.andWhere).toHaveBeenCalledWith('item.status IN (:...statusValues)', {
+        statusValues: ['active'],
+      });
+    });
+
+    it('drops empty/blank scalar filter values instead of emitting an empty IN ()', async () => {
+      await service.findAll({ filter: { status: '', role: null } });
+      const inClauses = (qb.andWhere as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
+        String(c[0]).includes(' IN '),
+      );
+      expect(inClauses).toHaveLength(0);
     });
 
     it('applies search terms as a parameterised case-insensitive ILIKE clause', async () => {
@@ -157,7 +177,7 @@ describe('BaseService', () => {
     it('applies sparse fieldsets and includes from the fetch specification', async () => {
       (qb.getOne as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sample);
       await service.getById('1', { fields: ['name'], include: ['relation'] });
-      expect(qb.select).toHaveBeenCalledWith(['item.name']);
+      expect(qb.select).toHaveBeenCalledWith(['item.id', 'item.name']);
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('item.relation', 'relation');
     });
 

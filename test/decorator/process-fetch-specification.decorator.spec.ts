@@ -208,4 +208,27 @@ describe('Test ProcessFetchSpecification decorator', () => {
       );
     });
   });
+
+  describe('sort whitelisting (allowedSort)', () => {
+    it('keeps sort entries that are in allowedSort (sigils stripped before check)', () => {
+      const { result } = run({ sort: 'name,-createdAt' }, { allowedSort: ['name', 'createdAt'] });
+      expect(result.sort).toStrictEqual(['name', '-createdAt']);
+    });
+
+    it('accepts a nested to-one sort path when whitelisted', () => {
+      const { result } = run({ sort: ['project.name'] }, { allowedSort: ['project.name'] });
+      expect(result.sort).toStrictEqual(['project.name']);
+    });
+
+    it('throws on a sort key outside allowedSort (closing the raw-sort injection vector)', () => {
+      expect(() => run({ sort: 'name,bad' }, { allowedSort: ['name'] })).toThrowError(
+        'Invalid sort key: bad',
+      );
+    });
+
+    it('does not gate sort when allowedSort is not provided', () => {
+      const { result } = run({ sort: 'anything' });
+      expect(result.sort).toStrictEqual(['anything']);
+    });
+  });
 });

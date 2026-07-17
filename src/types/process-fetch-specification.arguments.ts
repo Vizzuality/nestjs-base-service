@@ -6,4 +6,13 @@ export interface ProcessFetchSpecificationArguments {
    * this list throws, mirroring `allowedFilters`.
    */
   allowedSearch?: string[];
+  /**
+   * Columns (or to-one nested paths, e.g. `'project.name'`) that may be sorted
+   * on. A `sort` entry whose stripped path is not in this list throws.
+   *
+   * Sorting is otherwise interpolated into the ORDER BY, so gating it here (plus
+   * the resolver's grammar check) closes what was previously a raw-sort SQL
+   * injection vector. Strongly recommended whenever sorting is exposed.
+   */
+  allowedSort?: string[];
 }
