@@ -7,158 +7,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 1.0.0-rc.5
-
-2026-07-17
-
-Completes Part E: opt-in Zod validation. (The framework-free package split and its
-leak-guard landed in `rc.3`.)
-
-### Added
-
-- **`BaseServiceModule.forRoot({ validation })`** — choose the DTO-validation
-  strategy per app. `'class-validator'` (default) is a **no-op** over today's
-  behaviour; `'zod'` registers the library's `ZodValidationPipe` as a global
-  `APP_PIPE`.
-- **`ZodValidationPipe`** — a thin, dependency-free pipe that validates any
-  Zod-backed DTO (`safeParse` → `400` with the Zod issues on failure) and passes
-  non-Zod arguments through. It recognises both the library's `createZodDto` and
-  `nestjs-zod`'s (reads their static `schema`), so it needs no `zod` import
-  itself.
-- **`createZodDto(schema)`** — wrap a Zod schema (e.g. a `buildFetchQuerySchema`
-  output) into a DTO the pipe validates, with no extra dependency.
-- **`nestjs-zod` optional peer** — if present and you use _its_ `createZodDto`,
-  Swagger/OpenAPI is generated from your Zod schema; the library's pipe validates
-  those DTOs too. Not required — the built-in path works without it.
-
-### Notes
-
-- `@nestjs/core` is now a peer dependency (for the `APP_PIPE` wiring); every
-  NestJS app already provides it.
-
-### Fixed (QA hardening across rc.3–rc.5)
-
-- **Filter/search param-key collision.** A nested path (`photo.title` →
-  `photo_title`) and a literal `photo_title` column derived the same bound
-  parameter, so one clause silently overwrote the other's value. Param names are
-  now made unique per query.
-- **`findAllPaginated` + `disablePagination`** now reports honest meta
-  (`page: 1`, `size: totalItems`) instead of the default page size while returning
-  all rows.
-- **`buildPaginationMeta`** coerces a non-positive `pageNumber`/`pageSize` to the
-  defaults (no negative `skip`).
-- **`BaseServiceModule.forRoot`** throws on an unknown `validation` strategy
-  instead of silently wiring nothing.
-- **`disablePagination` schema parsing** is now case-insensitive
-  (`"TRUE"`/`"False"`), matching the decorator.
-- **Invalid `filter`/`search`/`sort` keys** now raise a `400`
-  (`BadRequestException`) rather than an unhandled `500`.
-
-### Docs
-
-- Reworked the README with a schema-builder deep-dive and a **contract-first**
-  guide (oRPC and ts-rest, server + client). All examples use a generic domain.
-
-## 1.0.0-rc.4
-
-2026-07-17
-
-Adds nested-relation (to-one) sort / filter / search, building on the rc.3 base.
-
-### Added
-
-- **Nested to-one sort / filter / search.** `sort`, `filter` and `search` now
-  accept dot-paths into to-one relations (e.g. `sort=author.name`,
-  `filter[author.name]=Ansel`, `search[author.name]=ans`, two-level
-  `author.studio.name`). A shared resolver (`resolveColumnRef`) walks
-  TypeORM relation metadata, joins each segment with the **same alias convention
-  as `include`** (`a.b` → `a_b`) so an existing `include` join is reused, and uses
-  `leftJoin` (not select) so nested criteria don't hydrate the relation or clash
-  with sparse `fields`.
-- **`allowedSort`** on the `ProcessFetchSpecification` decorator, mirroring
-  `allowedFilters` / `allowedSearch`, to whitelist sortable columns/paths.
-- **Bounded-depth nested config types** (`NestedColumnsOf`, `ColumnPathsList`):
-  `columnsAllowedAs{Sortable,Filters,Search}` are typed to the entity's to-one
-  nested paths (default depth 2), giving autocomplete and compile-time checks.
-
-### Security
-
-- **Closed the raw-sort SQL-injection vector.** Sort paths were previously
-  interpolated into ORDER BY unguarded. They are now grammar-checked
-  (`^[A-Za-z_][A-Za-z0-9_]*(\.…)*$`) and validated against relation metadata
-  before any SQL is built, and gated by `allowedSort` (decorator) /
-  `columnsAllowedAsSortable` (Zod schema). Filter/search values remain
-  parameterised.
-
-### Notes
-
-- **To-one only (v1).** A path through a to-many relation throws a clear error.
-- **Pagination.** Distinct-root pagination (`take`/`skip`) is retained. Sorting by
-  a nested column _with pagination_ selects that column (a TypeORM requirement for
-  the distinct subquery), so the sorted relation appears partially in results —
-  `include` it for full hydration. Non-paginated nested sort leaves the SELECT
-  untouched.
-
 ## 1.0.0-rc.3
 
 2026-07-17
 
-Absorbs what a downstream integration prototyped and fixes the bugs its
-integration tests surfaced. Adds a third, framework-free package and folds the
-app-side `ApiBaseService` capabilities into the library.
+Third — and largest — release candidate for the `1.0.0` revival. It lifts the
+entity-typed fetch-query **schema builder** into its own package, adds
+**nested to-one** sort / filter / search, folds the app-side pagination and
+serialization helpers into `BaseService`, and adds **opt-in Zod validation** — plus
+the bug fixes those features surfaced. Published under the `rc` dist-tag
+(`pnpm add nestjs-base-service@rc`); `latest` stays on the `0.x` line.
+
+> Consolidates work staged internally after `rc.2` (never published) into a single
+> pre-release.
+
+> **Baseline:** the breaking changes relative to `0.11.x` documented under
+> `1.0.0-rc.1` still apply. The list below is what changed **since `rc.2`**.
+
+### ⚠ Breaking changes (since rc.2)
+
+- **`@nestjs/core` is now a required peer dependency** (for the global-pipe
+  `APP_PIPE` wiring behind `BaseServiceModule.forRoot`). Every NestJS app already
+  provides it, but it must be resolvable.
+- **`JsonApiResource` was renamed to `JsonApiResourceLike`.** The name
+  `JsonApiResource` now refers to the generic JSON:API document type
+  `JsonApiResource<TType, TData>` (exported from the types companion). Update any
+  import of the old loose single-resource interface.
+- **Invalid `filter` / `search` / `sort` keys now return `400`
+  (`BadRequestException`)** instead of throwing a raw `Error` (which surfaced as a
+  `500`). Callers/tests asserting on `500` must update.
+- **A single scalar filter now applies.** `?filter[key]=x` (a scalar, not
+  `?filter[key][]=x`) was previously a silent no-op that matched everything; it is
+  now applied as `key IN ('x')`. Queries that unintentionally relied on the no-op
+  will start filtering.
+- **Sparse `fields` behaviour changed:** the configured id column is now always
+  selected, and `fields` composes with `include` (previously a sparse fieldset
+  dropped the included relation). Result objects therefore now include the id and
+  any included relation.
+- **`disablePagination` is parsed strictly** by the schema builder — no more
+  `z.coerce.boolean()` (which coerced the string `"false"` to `true`). `"true"` /
+  `"false"` (any case) parse explicitly; other values are rejected.
+- **Sort columns are validated.** Sort paths are grammar-checked and, via
+  `allowedSort` (decorator) / `columnsAllowedAsSortable` (schema), whitelist-gated;
+  unvalidated columns no longer reach the `ORDER BY` (also closes a raw-sort SQL
+  injection vector — see Security).
 
 ### Added
 
 - **New package `@vizzuality/base-service-schema`** — a framework-free, Zod-based
-  runtime with the entity-typed fetch-query schema builder
-  (`buildFetchQuerySchema<Entity>()`) and JSON:API error Zod schemas. Its
+  runtime: the entity-typed fetch-query schema builder
+  (`buildFetchQuerySchema<Entity>()`) plus JSON:API error Zod schemas. Its
   dependency graph has **zero path** to `@nestjs/*` or `typeorm` (only `zod`, a
-  peer), enforced by a leak-guard test — so a shared contracts package or a
-  client can import it without dragging in NestJS.
-- **Folded-in `ApiBaseService` capabilities on `BaseService`**: `findAllPaginated`
+  peer), enforced by a leak-guard test — so a shared contracts package or a browser
+  client can import it without dragging in NestJS. Enables **contract-first** APIs
+  with oRPC or ts-rest (see the README).
+- **Nested to-one sort / filter / search.** `sort`, `filter` and `search` accept
+  dot-paths into to-one relations (e.g. `sort=author.name`,
+  `filter[author.name]=Ansel`, `search[author.name]=ans`, two-level
+  `author.studio.name`). A shared resolver (`resolveColumnRef`) walks TypeORM
+  relation metadata, joins each segment with the **same alias convention as
+  `include`** (`a.b` → `a_b`) so an existing `include` join is reused, and uses
+  `leftJoin` (not select) so nested criteria don't hydrate the relation or clash
+  with sparse `fields`. **To-one only** — a to-many path throws.
+- **Bounded-depth nested config types** (`NestedColumnsOf`, `ColumnPathsList`):
+  `columnsAllowedAs{Sortable,Filters,Search}` are typed to the entity's to-one
+  nested paths (default depth 2), giving autocomplete and compile-time checks.
+- **Folded-in pagination/serialization helpers on `BaseService`**: `findAllPaginated`
   (list → serialize → pagination meta in one call), `toFetchSpecification`
   (nested `page` → flat `pageNumber`/`pageSize`), `buildPaginationMeta` and
   `ensureIdField`. The only app-specific inputs — the JSON:API serializer and the
-  resource `type` — are injected via service options, keeping the library
-  serializer-agnostic.
+  resource `type` — are injected via service options.
 - **Pluggable serializer** (`JsonApiSerializerAdapter`): inject any serializer
   (e.g. `ts-japi`) via `serializer.adapter` instead of the built-in, deprecated
   `jsona`. `serialize()` and `findAllPaginated()` both route through it.
+- **Opt-in Zod validation** — `BaseServiceModule.forRoot({ validation })`
+  (`'class-validator'` default is a no-op; `'zod'` registers a global
+  `ZodValidationPipe`), a thin dependency-free `ZodValidationPipe`, and a
+  `createZodDto` helper. `nestjs-zod` is an **optional peer** (used for Swagger
+  from your Zod schemas; not required).
 - **New generic types** in the types companion: JSON:API document/error shapes
   (`JsonApiResource<TType, TData>`, `JsonApiCollection`, `JsonApiResourceObject`,
   `JsonApiMetaDocument`, `JsonApiPaginationMeta`, error types), the
   `FetchConfig<Entity>` / `ColumnsOf` / `ColumnUnion` generics, and
   `WireFetchQuery`.
+- **`allowedSort`** on the `ProcessFetchSpecification` decorator, mirroring
+  `allowedFilters` / `allowedSearch`.
+- **Array + CSV wire tolerance.** The decorator and schema both accept multi-value
+  params as bracketed arrays (`sort[]=`, `filter[k][]=`) or comma-separated
+  strings (`sort=a,-b`).
+
+### Security
+
+- **Closed a raw-sort SQL-injection vector.** Sort paths were previously
+  interpolated into `ORDER BY` unguarded. They are now grammar-checked
+  (`^[A-Za-z_][A-Za-z0-9_]*(\.…)*$`) and validated against relation metadata before
+  any SQL is built, and gated by `allowedSort` / `columnsAllowedAsSortable`.
+  Filter/search values remain parameterised.
 
 ### Fixed
 
-- **`fields` + `include` now compose.** A sparse fieldset no longer clobbers an
-  included relation's join: `addFields` narrows the root columns while preserving
-  joined-relation (and custom `addSelect`) selections.
-- **A sparse `fields` set always selects the id column** (using the configured
-  `idProperty`), so rows never come back without an id and break JSON:API
-  serialization.
-- **A single-value filter is no longer a silent no-op.** `?filter[key]=x` (scalar)
-  is coerced to a one-element `IN (...)`; blank/`null` values are dropped.
-- **`disablePagination` parsing** in the schema builder no longer uses
-  `z.coerce.boolean()` (which coerced `"false"` to `true`); `"true"`/`"false"`
-  are parsed explicitly.
-- **The `ProcessFetchSpecification` decorator now tolerates array wire params**
-  (`sort[]=`, `include[]=`, `filter[k][]=`) in addition to comma-separated values,
-  so both wire conventions agree.
+- **Filter/search param-key collision.** A nested path (`photo.title` →
+  `photo_title`) and a literal `photo_title` column derived the same bound
+  parameter, so one clause silently overwrote the other's value. Param names are
+  now unique per query.
+- **`findAllPaginated` + `disablePagination`** reports honest meta (`page: 1`,
+  `size: totalItems`) instead of the default page size while returning all rows.
+- **`buildPaginationMeta`** coerces a non-positive `pageNumber`/`pageSize` to the
+  defaults (no negative `skip`).
 
-### Changed
+### Notes
 
-- The loose single-resource type exported from `base.service` was renamed
-  `JsonApiResource` → **`JsonApiResourceLike`** to make room for the new generic
-  `JsonApiResource<TType, TData>` document type. (The generic types are the
-  canonical JSON:API shapes going forward.)
+- **Pagination.** Distinct-root pagination (`take`/`skip`) is retained. Sorting by
+  a nested column _with pagination_ selects that column (a TypeORM requirement for
+  the distinct subquery), so the sorted relation appears partially in results —
+  `include` it for full hydration. Non-paginated nested sort leaves the SELECT
+  untouched.
+- **Query-parser prerequisite.** The decorator and schema-direct paths require a
+  bracket-expanding query parser on the host (`app.set('query parser', 'extended')`
+  on Express 5). See the README.
 
 ### Docs
 
-- Documented the **query-parser prerequisite** (`app.set('query parser',
-'extended')` on Express 5), the **array + CSV wire convention**, the
-  **pluggable serializer**, `findAllPaginated`, and the schema package.
+- Extensive README rework: a schema-builder deep-dive and a **contract-first**
+  guide (oRPC and ts-rest, server + client), the query-parser prerequisite, the
+  wire convention, and the pluggable serializer. All examples use a generic domain.
 
 ## 1.0.0-rc.2
 

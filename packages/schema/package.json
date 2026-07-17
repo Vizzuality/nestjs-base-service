@@ -1,6 +1,6 @@
 {
   "name": "@vizzuality/base-service-schema",
-  "version": "1.0.0-rc.5",
+  "version": "1.0.0-rc.3",
   "description": "Framework-free, Zod-based fetch-query schema builder and JSON:API schemas for nestjs-base-service. Zero path to @nestjs/* or typeorm — safe in a client bundle.",
   "license": "MIT",
   "files": [
@@ -27,7 +27,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@vizzuality/nestjs-base-service-types": "1.0.0-rc.5"
+    "@vizzuality/nestjs-base-service-types": "1.0.0-rc.3"
   },
   "peerDependencies": {
     "zod": "^3.25.0"
