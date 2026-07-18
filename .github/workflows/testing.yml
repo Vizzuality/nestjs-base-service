@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
   pull_request:
@@ -6,35 +6,51 @@ on:
     branches:
       - main
 
-env:
-  CC_TEST_REPORTER_ID: d25b4abd6845e37e3721694d8c9c7f025e3000e67741828467de028d1ce304c6
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  testing:
-    name: Tests
-    runs-on: ubuntu-20.04
+  test:
+    name: Lint, typecheck, build & test
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
-        node: [ '14.17', '16.13', '18.13' ]
+        node: ['20', '22']
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Use correct Node.js version
-        uses: actions/setup-node@v2
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          cache: pnpm
 
       - name: Install dependencies
-        run: yarn install
+        run: pnpm install --frozen-lockfile
 
-      - name: Build package (just in case build fails)
-        run: yarn build
+      - name: Lint
+        run: pnpm lint
 
-      - name: Run tests with coverage
-        uses: paambaati/codeclimate-action@v2.7.5
-        with:
-          coverageCommand: yarn test:cov
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test with coverage
+        run: pnpm test:cov
+        # Coverage runs in-CI (thresholds enforced in vitest.config.ts). To
+        # publish reports, add a Codecov/Coveralls upload step here with a token.

@@ -5,11 +5,260 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## 1.0.0-rc.3
+
+2026-07-17
+
+Third — and largest — release candidate for the `1.0.0` revival. It lifts the
+entity-typed fetch-query **schema builder** into its own package, adds
+**nested to-one** sort / filter / search, folds the app-side pagination and
+serialization helpers into `BaseService`, and adds **opt-in Zod validation** — plus
+the bug fixes those features surfaced. Published under the `rc` dist-tag
+(`pnpm add nestjs-base-service@rc`); `latest` stays on the `0.x` line.
+
+> Consolidates work staged internally after `rc.2` (never published) into a single
+> pre-release.
+
+> **Baseline:** the breaking changes relative to `0.11.x` documented under
+> `1.0.0-rc.1` still apply. The list below is what changed **since `rc.2`**.
+
+### ⚠ Breaking changes (since rc.2)
+
+- **`@nestjs/core` is now a required peer dependency** (for the global-pipe
+  `APP_PIPE` wiring behind `BaseServiceModule.forRoot`). Every NestJS app already
+  provides it, but it must be resolvable.
+- **`JsonApiResource` was renamed to `JsonApiResourceLike`.** The name
+  `JsonApiResource` now refers to the generic JSON:API document type
+  `JsonApiResource<TType, TData>` (exported from the types companion). Update any
+  import of the old loose single-resource interface.
+- **Invalid `filter` / `search` / `sort` keys now return `400`
+  (`BadRequestException`)** instead of throwing a raw `Error` (which surfaced as a
+  `500`). Callers/tests asserting on `500` must update.
+- **A single scalar filter now applies.** `?filter[key]=x` (a scalar, not
+  `?filter[key][]=x`) was previously a silent no-op that matched everything; it is
+  now applied as `key IN ('x')`. Queries that unintentionally relied on the no-op
+  will start filtering.
+- **Sparse `fields` behaviour changed:** the configured id column is now always
+  selected, and `fields` composes with `include` (previously a sparse fieldset
+  dropped the included relation). Result objects therefore now include the id and
+  any included relation.
+- **`disablePagination` is parsed strictly** by the schema builder — no more
+  `z.coerce.boolean()` (which coerced the string `"false"` to `true`). `"true"` /
+  `"false"` (any case) parse explicitly; other values are rejected.
+- **Sort columns are validated.** Sort paths are grammar-checked and, via
+  `allowedSort` (decorator) / `columnsAllowedAsSortable` (schema), whitelist-gated;
+  unvalidated columns no longer reach the `ORDER BY` (also closes a raw-sort SQL
+  injection vector — see Security).
+
+### Added
+
+- **New package `@vizzuality/base-service-schema`** — a framework-free, Zod-based
+  runtime: the entity-typed fetch-query schema builder
+  (`buildFetchQuerySchema<Entity>()`) plus JSON:API error Zod schemas. Its
+  dependency graph has **zero path** to `@nestjs/*` or `typeorm` (only `zod`, a
+  peer), enforced by a leak-guard test — so a shared contracts package or a browser
+  client can import it without dragging in NestJS. Enables **contract-first** APIs
+  with oRPC or ts-rest (see the README).
+- **Nested to-one sort / filter / search.** `sort`, `filter` and `search` accept
+  dot-paths into to-one relations (e.g. `sort=author.name`,
+  `filter[author.name]=Ansel`, `search[author.name]=ans`, two-level
+  `author.studio.name`). A shared resolver (`resolveColumnRef`) walks TypeORM
+  relation metadata, joins each segment with the **same alias convention as
+  `include`** (`a.b` → `a_b`) so an existing `include` join is reused, and uses
+  `leftJoin` (not select) so nested criteria don't hydrate the relation or clash
+  with sparse `fields`. **To-one only** — a to-many path throws.
+- **Bounded-depth nested config types** (`NestedColumnsOf`, `ColumnPathsList`):
+  `columnsAllowedAs{Sortable,Filters,Search}` are typed to the entity's to-one
+  nested paths (default depth 2), giving autocomplete and compile-time checks.
+- **Folded-in pagination/serialization helpers on `BaseService`**: `findAllPaginated`
+  (list → serialize → pagination meta in one call), `toFetchSpecification`
+  (nested `page` → flat `pageNumber`/`pageSize`), `buildPaginationMeta` and
+  `ensureIdField`. The only app-specific inputs — the JSON:API serializer and the
+  resource `type` — are injected via service options.
+- **Pluggable serializer** (`JsonApiSerializerAdapter`): inject any serializer
+  (e.g. `ts-japi`) via `serializer.adapter` instead of the built-in, deprecated
+  `jsona`. `serialize()` and `findAllPaginated()` both route through it.
+- **Opt-in Zod validation** — `BaseServiceModule.forRoot({ validation })`
+  (`'class-validator'` default is a no-op; `'zod'` registers a global
+  `ZodValidationPipe`), a thin dependency-free `ZodValidationPipe`, and a
+  `createZodDto` helper. `nestjs-zod` is an **optional peer** (used for Swagger
+  from your Zod schemas; not required).
+- **New generic types** in the types companion: JSON:API document/error shapes
+  (`JsonApiResource<TType, TData>`, `JsonApiCollection`, `JsonApiResourceObject`,
+  `JsonApiMetaDocument`, `JsonApiPaginationMeta`, error types), the
+  `FetchConfig<Entity>` / `ColumnsOf` / `ColumnUnion` generics, and
+  `WireFetchQuery`.
+- **`allowedSort`** on the `ProcessFetchSpecification` decorator, mirroring
+  `allowedFilters` / `allowedSearch`.
+- **Array + CSV wire tolerance.** The decorator and schema both accept multi-value
+  params as bracketed arrays (`sort[]=`, `filter[k][]=`) or comma-separated
+  strings (`sort=a,-b`).
+
+### Security
+
+- **Closed a raw-sort SQL-injection vector.** Sort paths were previously
+  interpolated into `ORDER BY` unguarded. They are now grammar-checked
+  (`^[A-Za-z_][A-Za-z0-9_]*(\.…)*$`) and validated against relation metadata before
+  any SQL is built, and gated by `allowedSort` / `columnsAllowedAsSortable`.
+  Filter/search values remain parameterised.
+
+### Fixed
+
+- **Filter/search param-key collision.** A nested path (`photo.title` →
+  `photo_title`) and a literal `photo_title` column derived the same bound
+  parameter, so one clause silently overwrote the other's value. Param names are
+  now unique per query.
+- **`findAllPaginated` + `disablePagination`** reports honest meta (`page: 1`,
+  `size: totalItems`) instead of the default page size while returning all rows.
+- **`buildPaginationMeta`** coerces a non-positive `pageNumber`/`pageSize` to the
+  defaults (no negative `skip`).
+
+### Notes
+
+- **Pagination.** Distinct-root pagination (`take`/`skip`) is retained. Sorting by
+  a nested column _with pagination_ selects that column (a TypeORM requirement for
+  the distinct subquery), so the sorted relation appears partially in results —
+  `include` it for full hydration. Non-paginated nested sort leaves the SELECT
+  untouched.
+- **Query-parser prerequisite.** The decorator and schema-direct paths require a
+  bracket-expanding query parser on the host (`app.set('query parser', 'extended')`
+  on Express 5). See the README.
+
+### Docs
+
+- Extensive README rework: a schema-builder deep-dive and a **contract-first**
+  guide (oRPC and ts-rest, server + client), the query-parser prerequisite, the
+  wire convention, and the pluggable serializer. All examples use a generic domain.
+
+## 1.0.0-rc.2
+
+2026-06-26
+
+Second release candidate for the `1.0.0` revival. Purely **additive** on top of
+`1.0.0-rc.1` — no breaking changes and no changes to existing behavior: a new
+partial-match `search` capability on the fetch specification, and a companion
+types package (with an optional, fully-typed query builder) for frontends. The
+breaking changes relative to `0.11.0` documented under `1.0.0-rc.1` still apply.
+
+Published under the `rc` dist-tag for integration testing
+(`pnpm add nestjs-base-service@rc`); not yet promoted to `latest`.
+
+### Added
+
+- **Partial-match search** on the fetch specification — a new `search` member
+  (`PartialMatchSpecification`) alongside `filter`. Each `search[<property>]`
+  value is applied as a parameterised, case-insensitive `ILIKE '%term%'` clause
+  (vs `filter`'s exact `IN`). Terms are kept as single literal strings (commas
+  are not split); multiple search keys are `AND`'d together and with any
+  `filter`. The `ProcessFetchSpecification` decorator gains an `allowedSearch`
+  whitelist (mirrors `allowedFilters`), and `BaseService.setSearch()` /
+  `_processBaseSearchTerm()` are overridable for non-PostgreSQL dialects.
+  - The public API is unchanged for existing consumers; `search` is purely
+    additive.
+- **Types-only companion package `@vizzuality/nestjs-base-service-types`** — a
+  zero-runtime, zero-dependency package exposing just the contract types
+  (`FetchSpecification` & components, `InfoDTO`,
+  `ProcessFetchSpecificationArguments`) so frontends can `import type` them
+  without pulling in `@nestjs/common` / `typeorm`. Built from the same
+  `src/types/` source as the library (single source of truth) via the new
+  `build:types` / `pack:types` scripts. No pnpm workspace.
+  - **Query builder (`./query` subpath)** — `createFetchQuery<Entity>()`, an
+    immutable, fully-typed builder that composes the exact query string the
+    `ProcessFetchSpecification` decorator parses (and `.toSpecification()` for
+    the parsed shape), plus its inverse `parseFetchQuery()`. Zero dependencies
+    (built-in `URLSearchParams` only); kept in lockstep with the decorator by a
+    round-trip test and a contract test against the real decorator. The bare
+    types specifier stays runtime-free.
+
+## 1.0.0-rc.1
+
+2026-06-17
+
+First release candidate for the `1.0.0` revival. The package was dormant for ~3
+years (NestJS 9 era); this RC brings the toolchain, dependencies and build output
+up to date, adds JSON:API serialization, and fixes several latent bugs — while
+keeping the public API (`BaseService`, `ProcessFetchSpecification`, `FetchUtils`,
+`FetchSpecification`, defaults) and its behavior unchanged.
+
+Published under the `rc` dist-tag for integration testing in downstream projects
+(`pnpm add nestjs-base-service@rc`); not yet promoted to `latest`. Expect further
+release candidates before the final `1.0.0`.
+
+**Breaking** (relative to `0.11.0`) — drops support for old Node/NestJS/TypeORM
+and ships as an ESM + CommonJS dual package. Consumers on NestJS 9/10 should
+remain on `0.11.0`.
+
+### Breaking changes
+
+- **Node.js >= 20** required (was `>=14.17`).
+- **Peer dependencies bumped:** `@nestjs/common` `^11`, `typeorm` `^0.3.20`
+  (was `^9.2.1` / `^0.3.11`).
+- **Dual ESM + CJS build** via `tsup`, with an `exports` map and bundled type
+  definitions. `main` now points to `./dist/index.cjs`; ESM consumers resolve
+  `./dist/index.js`; types resolve per-condition
+  (`./dist/index.d.ts` / `./dist/index.d.cts`).
+- **Removed unused runtime dependencies:** `express` and `lodash` (the lodash
+  helpers used internally were replaced with dependency-free equivalents).
+- **`class-validator` / `class-transformer` are now declared as optional peer
+  dependencies** instead of bundled runtime deps. They were never imported by
+  the library, and class-validator must share a single instance with the host
+  app — bundling a copy silently breaks validation.
+
+### Added
+
+- **`async BaseService.serialize(data, meta?, includeNames?)`** — serializes one
+  or many entities into a JSON:API document (resource `type`/`id`, attributes,
+  relationships and `included`), powered by
+  [`jsona`](https://www.npmjs.com/package/jsona). Resource `type` is derived from
+  TypeORM entity metadata (falling back to the query alias) and can be overridden
+  via the new `serializer.type` service option. (Ticks the long-standing
+  "serialization" roadmap item.)
+  - **`jsona` is an _optional_ peer dependency**, imported lazily inside
+    `serialize()` — projects that do their own serialization need not install it.
+    `serialize()` is `async` and throws a clear error if `jsona` is missing.
+  - `EntityPropertiesMapper` structurally implements the mapper interface, so the
+    package no longer references `jsona` at module-load time, and `jsona` types do
+    not leak into the public `.d.ts` (`JsonApiDocument` is self-contained).
+
+### Fixed
+
+- `remove()` / `removeMany()` now honour the configured `idProperty` instead of
+  a hardcoded `id` column (deletes were broken for entities with a custom primary
+  key).
+- `findAllRaw()` now reports the **total** matching row count (via `getCount()`)
+  rather than the current page's length.
+- Nested `include` aliases beyond two levels are now fully underscored
+  (`author.profile.avatar` → `author_profile_avatar`); previously only the first
+  dot was replaced.
+- `ProcessFetchSpecification` now correctly re-applies the whitelisted filter
+  subset (the previous `result.length` check on an object was always falsy).
+
+### Tooling
+
+- Package manager: **pnpm** (was Yarn).
+- Build: **tsup** (was `tsc`) — dual ESM+CJS + `.d.ts`, `exports` map, sourcemaps.
+- Tests: **Vitest** (was Jest), with `unplugin-swc` so `emitDecoratorMetadata`
+  works for NestJS decorators; `BaseService`, `FetchUtils`, the serializer and
+  the internal utilities now have test coverage (>90%).
+- Lint/format: **oxlint + oxfmt** (was ESLint + Prettier).
+- Git hooks: **prek** (a Rust drop-in for pre-commit) via `.pre-commit-config.yaml`,
+  running oxlint + oxfmt on staged files (replaces husky + lint-staged).
+- TypeScript bumped to `5.9.x`; build target Node 20.
+- CI refreshed (pnpm, Node 20/22, updated GitHub Actions).
+
+### Notes
+
+- No breaking changes to the existing public API (`BaseService`,
+  `ProcessFetchSpecification`, `FetchUtils`, `FetchSpecification`, defaults) or
+  its behavior; `serialize()` is purely additive.
+
 ## 0.11.0
 
 2023-03-30
 
-- Make `_processBaseFilter` and `_processBaseFilter` methods of `BaseService` `protected` to allow them to be overriden.  
+- Make `_processBaseFilter` and `_processBaseFilter` methods of `BaseService` `protected` to allow them to be overriden.
 
 ## 0.10.0
 
@@ -54,7 +303,7 @@ throughout any of these lifecycle hooks.
 
 - Update `nodejs` requirement to `>=14.17` instead of `~14.17`
 
-## 0.8.0 
+## 0.8.0
 
 2021-11-04
 
@@ -73,7 +322,6 @@ throughout any of these lifecycle hooks.
   - Equivalent functionality has been moved into the `ProcessFetchSpecification` request parameter decorator.
 - `ProcessFetchSpecification` decorator now accepts an optional whitelist of filtering parameters it allows.
 - `BaseService` now has a working basic built-in filtering functionality.
-
 
 ## 0.6.1
 
@@ -100,7 +348,6 @@ throughout any of these lifecycle hooks.
 - [BREAKING CHANGE] `idProperty` is now part of the service `options` provided
   to the constructor.
 
-
 ## 0.5.2
 
 2021-04-20
@@ -113,7 +360,6 @@ throughout any of these lifecycle hooks.
   directly to database columns it can be used as a sort of DTO, and the hooks
   added in this release allow to reshape/extend data after it has been fetched
   from db.
-
 
 ## [0.5.1]
 
@@ -132,10 +378,10 @@ throughout any of these lifecycle hooks.
 - Some verbose logging used during development of the initial FetchSpecification
   implementation has been removed.
 
-
 ## [0.5.0]
 
 2021-03-23
+
 ### Added
 
 - Support for processing of meaningful parts of `FetchSpecification` (included
@@ -151,7 +397,6 @@ throughout any of these lifecycle hooks.
   but to add joins and other conditions to the query being assembled.
 - Stricter typing where applicable.
 
-
 ## [0.4.6]
 
 2021-03-22
@@ -161,7 +406,6 @@ throughout any of these lifecycle hooks.
 - Support for `filter` query params, e.g.
   `filter[keyA]=val1,val2&filter[keyB]=val3,val4,val5`.
 
-
 ## [0.4.5]
 
 2021-03-18
@@ -170,6 +414,7 @@ throughout any of these lifecycle hooks.
 
 - Add support for a variant of `findAll()` that returns raw results (to be used
   with a grain of salt and awareness of possible pitfalls).
+
 ### Changed
 
 - Refactor parts of `findAll()` now shared with `findAllRaw()`.
@@ -188,7 +433,6 @@ throughout any of these lifecycle hooks.
   should be properly enforced one level downstream, but for the moment the
   current guards should be enough.
 
-
 ## [0.4.3]
 
 2021-03-10
@@ -206,7 +450,6 @@ throughout any of these lifecycle hooks.
 - More `"`-wrapping of entity and prop names introduced erroneously in previous
   release was undone. There are no instances left of this bug in the current
   code.
-
 
 ## [0.4.2]
 
@@ -235,7 +478,6 @@ throughout any of these lifecycle hooks.
   iterating it faster there. After some refactoring, we can now include the
   most recent middleware here.
 - Add support for bypassing pagination (`?noPagination=true`).
-
 
 ## [0.4.0]
 
@@ -268,7 +510,6 @@ throughout any of these lifecycle hooks.
   static function `PaginationUtils.pagination()`: this is now done via
   `FetchUtils.processFetchSpecification()`.
 
-
 ## [0.2.2]
 
 2021-02-25
@@ -277,16 +518,15 @@ throughout any of these lifecycle hooks.
 
 - Add support for searching by id using arbitrary id column names.
 
-
 ## [0.2.1]
 
 2021-02-08
+
 ### Added
 
 - Add initial support for pagination, for plural `GET` requests.
 - Add scaffolding for other fetch specification traits: `includes` (resource
   inclusion), `fields` (sparse fieldsets), `sort` (sorting by specific fields).
-
 
 ## [0.2.0]
 
@@ -297,7 +537,6 @@ throughout any of these lifecycle hooks.
 - [BREAKING CHANGE] `GenericService` has been renamed to `BaseService`, aligning
   the class name to the package name, besides arguably better matching the
   intent of this service.
-
 
 ## [0.1.0]
 

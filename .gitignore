@@ -1,6 +1,13 @@
 # compiled output
 /dist
 /node_modules
+packages/*/dist
+packages/*/*.tgz
+# packed tarballs (build artifacts)
+*.tgz
+
+# Claude Code session/agent files
+.claude/
 
 # Logs
 logs

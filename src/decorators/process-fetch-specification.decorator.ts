@@ -1,14 +1,38 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { parseInt, pickBy } from 'lodash';
+import { BadRequestException, createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { pickBy } from '../utils/object.utils';
 import { FetchSpecification } from '../types/fetch-specification.interface';
+import { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
 import {
   DEFAULT_FIELDS_AND_INCLUDE_SPECIFICATION,
   DEFAULT_PAGINATION,
   DEFAULT_SORT_SPECIFICATION,
 } from '../config/default.config';
 
-export interface ProcessFetchSpecificationArguments {
-  allowedFilters?: string[];
+// Re-exported so the package root API is unchanged; the interface itself lives
+// in a pure, runtime-free module (`../types/process-fetch-specification.arguments`)
+// so it can be shared with the types-only companion package.
+export type { ProcessFetchSpecificationArguments } from '../types/process-fetch-specification.arguments';
+
+/**
+ * Normalise a multi-value query param to a `string[]`, tolerating both wire
+ * conventions the ecosystem uses:
+ *
+ * - comma-separated single param — `?sort=a,-b` → `['a', '-b']`
+ * - repeated/bracketed array — `?sort[]=a&sort[]=b` → `['a', 'b']` (a
+ *   bracket-expanding query parser, e.g. Express `qs`, hands these to us already
+ *   as an array)
+ *
+ * Empty segments are dropped. Returns `undefined` for absent params so callers
+ * can leave the corresponding fetch-spec key unset.
+ */
+function toStringArray(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).filter((item) => item.length > 0);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').filter((item) => item.length > 0);
+  }
+  return undefined;
 }
 
 /**
@@ -17,7 +41,7 @@ export interface ProcessFetchSpecificationArguments {
 export const ProcessFetchSpecification = createParamDecorator(
   (
     processFetchSpecificationArgs: ProcessFetchSpecificationArguments = {},
-    ctx: ExecutionContext
+    ctx: ExecutionContext,
   ) => {
     const request = ctx.switchToHttp().getRequest();
 
@@ -43,19 +67,19 @@ export const ProcessFetchSpecification = createParamDecorator(
       typeof request?.query?.disablePagination === 'string'
         ? request?.query?.disablePagination.toLowerCase() === 'true'
         : typeof request?.query?.disablePagination === 'boolean'
-        ? request?.query?.disablePagination
-        : undefined;
+          ? request?.query?.disablePagination
+          : undefined;
 
-    const pageSize = parseInt(request?.query?.page?.size);
+    const pageSize = Number.parseInt(request?.query?.page?.size, 10);
     fetchSpecification.pageSize =
       typeof pageSize === 'number' && pageSize > 0 ? pageSize : undefined;
 
-    const pageNumber = parseInt(request?.query?.page?.number);
+    const pageNumber = Number.parseInt(request?.query?.page?.number, 10);
     fetchSpecification.pageNumber =
       typeof pageNumber === 'number' && pageNumber > 0 ? pageNumber : undefined;
 
-    fetchSpecification.fields = request?.query?.fields?.split(',');
-    fetchSpecification.omitFields = request?.query?.omitFields?.split(',');
+    fetchSpecification.fields = toStringArray(request?.query?.fields);
+    fetchSpecification.omitFields = toStringArray(request?.query?.omitFields);
     /**
      * @todo Most entities will use `id` as unique id, but since some do not,
      * this will not work. We need to make this configurable in this middleware,
@@ -69,9 +93,9 @@ export const ProcessFetchSpecification = createParamDecorator(
      * @todo Possibly reinstate whitelisting of allowed included entities, e.g.
      * (...).filter(inc => prePagination.allowIncludes.indexOf(inc) >= 0);
      */
-    fetchSpecification.include = request?.query?.include?.split(',');
+    fetchSpecification.include = toStringArray(request?.query?.include);
 
-    fetchSpecification.sort = request?.query?.sort?.split(',');
+    fetchSpecification.sort = toStringArray(request?.query?.sort);
 
     /**
      * @debt Correctly parse filter values that contain url-encoded comma (`,`)
@@ -81,8 +105,28 @@ export const ProcessFetchSpecification = createParamDecorator(
      * @debt Also add proper typing. This should start at Object.entries<T>
      */
     fetchSpecification.filter = request?.query?.filter
-      ? Object.entries<string>(request?.query?.filter).reduce((acc, current) => {
-          acc[current[0]] = current[1]?.split(',').filter((i) => i);
+      ? Object.entries<unknown>(request?.query?.filter).reduce((acc, [key, value]) => {
+          acc[key] = toStringArray(value) ?? [];
+          return acc;
+        }, {})
+      : undefined;
+
+    /**
+     * Partial-match search terms. Unlike `filter` (exact match, comma-split into
+     * arrays), each `search[<property>]` value is kept as a single literal
+     * string and later applied as a case-insensitive `ILIKE '%term%'`. Empty
+     * terms are dropped so we never emit a match-everything `ILIKE '%%'`.
+     */
+    fetchSpecification.search = request?.query?.search
+      ? Object.entries<unknown>(request?.query?.search).reduce((acc, [key, value]) => {
+          // Search terms are single literals; if a bracket-array parser hands us
+          // an array (`search[key][]=a&search[key][]=b`) take the last value,
+          // matching `qs`'s last-wins semantics for scalar params.
+          const raw = Array.isArray(value) ? value[value.length - 1] : value;
+          const term = raw == null ? '' : String(raw);
+          if (term.length > 0) {
+            acc[key] = term;
+          }
           return acc;
         }, {})
       : undefined;
@@ -105,6 +149,7 @@ export const ProcessFetchSpecification = createParamDecorator(
     delete request?.query?.sort;
     delete request?.query?.include;
     delete request?.query?.disablePagination;
+    delete request?.query?.search;
 
     if (!request.fetchSpecification) {
       request.fetchSpecification = {};
@@ -117,15 +162,39 @@ export const ProcessFetchSpecification = createParamDecorator(
         if (processFetchSpecificationArgs.allowedFilters.includes(key)) {
           return true;
         } else {
-          throw new Error(`Invalid filter key: ${key}`);
+          throw new BadRequestException(`Invalid filter key: ${key}`);
         }
       });
 
-      if (result.length > 0) {
+      if (Object.keys(result).length > 0) {
         request.fetchSpecification.filter = result;
       }
     }
 
+    if (processFetchSpecificationArgs?.allowedSort && request.fetchSpecification.sort) {
+      request.fetchSpecification.sort.forEach((entry: string) => {
+        // strip the sort direction sigil before checking the allow-list
+        const column = entry.replace(/^[+-]/, '');
+        if (!processFetchSpecificationArgs.allowedSort.includes(column)) {
+          throw new BadRequestException(`Invalid sort key: ${column}`);
+        }
+      });
+    }
+
+    if (processFetchSpecificationArgs?.allowedSearch) {
+      const result = pickBy(request.fetchSpecification.search, function (value, key) {
+        if (processFetchSpecificationArgs.allowedSearch.includes(key)) {
+          return true;
+        } else {
+          throw new BadRequestException(`Invalid search key: ${key}`);
+        }
+      });
+
+      if (Object.keys(result).length > 0) {
+        request.fetchSpecification.search = result;
+      }
+    }
+
     return request.fetchSpecification;
-  }
+  },
 );
